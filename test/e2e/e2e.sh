@@ -201,8 +201,10 @@ metrics_exposed() {
     keycloak_operator_server_info \
     keycloak_operator_admin_requests_total \
     keycloak_operator_admin_request_duration_seconds_bucket; do
-    echo "$M" | grep -q "^$metric" || {
-      echo "missing: $metric (fetched $(echo "$M" | wc -l) lines, image: $(kubectl -n keycloak-operator-system get deployment keycloak-operator -o jsonpath='{.spec.template.spec.containers[0].image}'))" >&2
+    # No grep -q here: with pipefail, its early exit on a match SIGPIPEs the
+    # producer and turns a successful match into a failure.
+    echo "$M" | grep "^$metric" >/dev/null || {
+      echo "missing: $metric (fetched $(echo "$M" | wc -l) lines)" >&2
       echo "$M" | grep -oE '^keycloak_operator[a-z_]*' | sort -u | sed 's/^/  present: /' >&2
       return 1
     }
@@ -210,9 +212,9 @@ metrics_exposed() {
   return 0
 }
 wait_for "all custom metrics exposed" 120 metrics_exposed
-echo "$M" | grep -q 'keycloak_operator_connection_up{connection="production",namespace="keycloak-system"} 1' \
+echo "$M" | grep 'keycloak_operator_connection_up{connection="production",namespace="keycloak-system"} 1' >/dev/null \
   && echo "PASS: connection_up reports healthy" || fail "connection_up not healthy"
-echo "$M" | grep -q 'keycloak_operator_server_info{.*version="26.3' \
+echo "$M" | grep 'keycloak_operator_server_info{.*version="26.3' >/dev/null \
   && echo "PASS: server_info reports the Keycloak version" || fail "server_info missing"
 kill $METRICS_PF_PID 2>/dev/null || true
 
