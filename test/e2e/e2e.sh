@@ -202,7 +202,8 @@ metrics_exposed() {
     keycloak_operator_admin_requests_total \
     keycloak_operator_admin_request_duration_seconds_bucket; do
     echo "$M" | grep -q "^$metric" || {
-      echo "missing: $metric (fetched $(echo "$M" | wc -l) lines, $(echo "$M" | grep -c keycloak_operator) keycloak lines, image: $(kubectl -n keycloak-operator-system get deployment keycloak-operator -o jsonpath='{.spec.template.spec.containers[0].image}'))" >&2
+      echo "missing: $metric (fetched $(echo "$M" | wc -l) lines, image: $(kubectl -n keycloak-operator-system get deployment keycloak-operator -o jsonpath='{.spec.template.spec.containers[0].image}'))" >&2
+      echo "$M" | grep -oE '^keycloak_operator[a-z_]*' | sort -u | sed 's/^/  present: /' >&2
       return 1
     }
   done
