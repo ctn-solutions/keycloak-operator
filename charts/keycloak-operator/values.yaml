@@ -1,0 +1,79 @@
+# Default values for keycloak-operator.
+
+# -- Number of operator replicas. Additional replicas run in standby
+# (leader election ensures a single active instance).
+replicaCount: 1
+
+image:
+  # -- Operator container image repository.
+  repository: ghcr.io/ctn-solutions/keycloak-operator
+  # -- Image tag. When empty, the chart's appVersion is used.
+  tag: ""
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+
+# -- Optional image pull secrets (e.g. for private registries).
+# Example: [{ name: my-registry-secret }]
+  pullSecrets: []
+
+# -- Override the chart name portion of generated resource names.
+nameOverride: ""
+# -- Override the fully qualified name of all generated resources.
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount for the operator.
+  create: true
+  # -- Name of the ServiceAccount. When empty, the release fullname is used.
+  # If serviceAccount.create is false, this defaults to "default".
+  name: ""
+  # -- Annotations to add to the ServiceAccount (e.g. for workload identity).
+  annotations: {}
+
+# -- Create the ClusterRole and ClusterRoleBinding the operator requires.
+# Set to false if the cluster administrator manages RBAC out of band.
+rbac:
+  create: true
+
+# -- Leader election allows multiple replicas to run safely, electing a
+# single active leader that reconciles resources.
+leaderElection:
+  enabled: true
+
+# -- Controller informer resync period (Go duration string, e.g. 1h, 30m).
+resyncPeriod: 1h
+
+# -- Container resource requests and limits.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+# -- Pod-level security context (Pod Security Standards "restricted" profile).
+securityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container-level security context.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  runAsUser: 65532
+
+# -- Node labels for pod assignment.
+nodeSelector: {}
+
+# -- Tolerations for pod assignment.
+tolerations: []
+
+# -- Pod affinity/anti-affinity configuration.
+affinity: {}
+
+# -- Name of an existing PriorityClass to assign to the operator pods.
+priorityClassName: ""

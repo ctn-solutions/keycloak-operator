@@ -1,135 +1,175 @@
-# keycloak-operator
-// TODO(user): Add simple overview of use/purpose
+# Keycloak Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+A Kubernetes operator that manages [Keycloak](https://www.keycloak.org/) configuration
+declaratively. Realms, clients, client scopes, roles, identity providers and groups live in
+your Git repository; the operator keeps a Keycloak server in sync with them.
 
-## Getting Started
+It maps the [Keycloak Admin API](https://www.keycloak.org/docs-api/latest/rest-api/) 1:1:
+every field in a custom resource spec mirrors the corresponding field of the Keycloak
+representation it manages, so what you write is exactly what the server stores.
 
-### Prerequisites
-- go version v1.24.6+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
-
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
-
-```sh
-make docker-build docker-push IMG=<some-registry>/keycloak-operator:tag
+```yaml
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: Realm
+metadata:
+  name: acme
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  displayName: ACME Platform
+  registrationAllowed: false
+  accessTokenLifespan: 900
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+## Features
 
-**Install the CRDs into the cluster:**
+- **1:1 API mapping** — spec fields match the Keycloak representations field-for-field.
+  Scalar fields are pointers, so *unset*, *explicitly false/zero* and *default* are always
+  distinguishable.
+- **Declarative field removal** — the operator records what it last applied; removing a
+  field from a spec resets it on the server.
+- **Drift correction** — changes made out-of-band in the Keycloak console are reverted on
+  the next reconciliation (periodic resync, default 1h).
+- **Adoption policies** — per-resource control over pre-existing server state:
+  `CreateOnly` (default, never touches foreign resources), `Adopt` (take over),
+  `FailIfExists`.
+- **Protected realms** — `master` is refused unless a resource explicitly carries the
+  `keycloak.ctn-solutions.io/allow-protected: "true"` annotation.
+- **Safe deletion** — every resource carries a finalizer; realms are orphaned by default
+  and only deleted with an explicit `deletionPolicy: Delete`.
+- **Secrets in both directions** — client secrets, identity-provider credentials and SMTP
+  passwords are read from Kubernetes Secrets (never inline in CRDs), and Keycloak-generated
+  client secrets are exported to Secrets for applications to mount.
+- **Multi-server** — one operator deployment manages any number of Keycloak servers through
+  `KeycloakConnection` resources.
 
-```sh
-make install
+## Resource types
+
+| CRD | Manages | Natural key |
+|---|---|---|
+| `KeycloakConnection` | A Keycloak server and its admin credentials | — |
+| `Realm` | A realm (`RealmRepresentation`) | `spec.realm` |
+| `Client` | A client (`ClientRepresentation`) | `spec.clientId` |
+| `ClientScope` | A client scope (`ClientScopeRepresentation`) | `spec.name` |
+| `RealmRole` | A realm role incl. composites (`RoleRepresentation`) | `spec.name` |
+| `IdentityProvider` | An identity broker (`IdentityProviderRepresentation`) | `spec.alias` |
+| `Group` | A group incl. role mappings (`GroupRepresentation`) | `spec.name` |
+
+All resources live in the API group `keycloak.ctn-solutions.io/v1alpha1` and reference
+their server through `spec.keycloakRef.name`, which must point to a `KeycloakConnection`
+in the same namespace.
+
+## Quickstart
+
+Install the operator with Helm:
+
+```bash
+helm install keycloak-operator oci://ghcr.io/ctn-solutions/charts/keycloak-operator \
+  --namespace keycloak-operator-system --create-namespace
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+Or from a checkout of this repository:
 
-```sh
-make deploy IMG=<some-registry>/keycloak-operator:tag
+```bash
+helm install keycloak-operator charts/keycloak-operator \
+  --namespace keycloak-operator-system --create-namespace
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+> Helm installs the CRDs from the chart's `crds/` directory on install but never upgrades
+> them. When upgrading the operator, apply the CRDs manually first:
+> `kubectl apply -f charts/keycloak-operator/crds/`.
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+Point the operator at your Keycloak server and declare a realm:
 
-```sh
-kubectl apply -k config/samples/
+```bash
+kubectl create namespace keycloak-system
+kubectl apply -f examples/
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+Watch it converge:
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
+```bash
+kubectl get realms,clients,groups -n keycloak-system -o wide
+kubectl describe realm acme -n keycloak-system   # conditions and events
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+## Semantics
 
-```sh
-make uninstall
+### Adoption policy (`spec.adoptionPolicy`)
+
+| Policy | Resource exists, unmanaged | Resource exists, managed by us | Resource absent |
+|---|---|---|---|
+| `CreateOnly` *(default)* | Fail (`AlreadyExists`) | Resume managing | Create |
+| `Adopt` | Take over and enforce | Resume managing | Create |
+| `FailIfExists` | Fail | Fail | Create |
+
+The operator stamps a managed marker on resources it creates or adopts (in the
+representation's `attributes` where the API allows it). Identity providers have no
+attributes block; there, management is tracked through the resource's last-applied
+annotation.
+
+### Deletion policy (`spec.deletionPolicy`)
+
+| Kind | Default | On resource deletion |
+|---|---|---|
+| `Realm` | `Orphan` | Realm stays on the server |
+| All others | `Delete` | Server resource is deleted |
+
+Set `deletionPolicy: Delete` on a Realm to opt in to realm deletion.
+
+### Status
+
+Resources report standard conditions:
+
+- `Ready` — the reconciliation outcome (`Succeeded`, `Retrying`, `Failed`, or reasons such
+  as `ConnectionUnavailable`, `AlreadyExists`, `SecretMissing`, `ProtectedRealm`)
+- `Synced` — the server state matches the spec
+
+Transient errors (network, 5xx) retry with backoff. Terminal errors (conflicts, missing
+secrets, protected realms) surface in the conditions and wait for a spec change or the
+periodic resync.
+
+### Secrets
+
+Sensitive values never live in custom resources:
+
+- `Client.spec.secretRef` — injects the client secret from a Secret you own.
+- `Client.spec.secretOutput` — exports the effective client secret to a Secret owned by
+  the `Client` resource, for applications to mount.
+- `IdentityProvider.spec.configSecretRef` — injects broker config values (e.g.
+  `clientSecret`) from a Secret.
+- `Realm.spec.smtpServerSecretRef` — injects SMTP credentials.
+
+## Compatibility
+
+- Keycloak **26.x** (the Admin API paths and semantics are verified against 26.3).
+- Kubernetes 1.25+.
+
+## Development
+
+```bash
+make test          # unit + controller tests (envtest, no cluster needed)
+make lint          # golangci-lint
+make run           # run the operator against the current kubeconfig context
 ```
 
-**UnDeploy the controller from the cluster:**
+End-to-end tests against a real Keycloak 26 server on a local cluster:
 
-```sh
-make undeploy
+```bash
+bash test/e2e/e2e.sh
 ```
 
-## Project Distribution
+See [docs/design.md](docs/design.md) for the architecture and design decisions, and
+[docs/crd-reference.md](docs/crd-reference.md) for the full CRD reference.
 
-Following the options to release and provide this solution to the users.
+## Roadmap
 
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/keycloak-operator:tag
-```
-
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/keycloak-operator/<tag or branch>/dist/install.yaml
-```
-
-### By providing a Helm Chart
-
-1. Build the chart using the optional helm plugin
-
-```sh
-kubebuilder edit --plugins=helm/v2-alpha
-```
-
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
-
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+- User management (with write-once, SecretRef-only credentials)
+- Client authorization services
+- Realm-level default groups and client policies
+- CI pipelines and released images
 
 ## License
 
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+[Apache-2.0](LICENSE)

@@ -1,0 +1,54 @@
+# A confidential OIDC client. The client secret is managed through Secrets:
+# - secretRef injects the secret from a Secret you own (source of truth),
+# - secretOutput mirrors the effective secret into a Secret applications can
+#   mount. Both may be used together.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: acme-portal-client-secret
+  namespace: keycloak-system
+stringData:
+  clientSecret: change-me-too
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: Client
+metadata:
+  name: acme-portal
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  clientId: acme-portal
+
+  name: ACME Portal
+  enabled: true
+  protocol: openid-connect
+  publicClient: false
+
+  standardFlowEnabled: true
+  directAccessGrantsEnabled: false
+  serviceAccountsEnabled: true
+
+  redirectUris:
+    - https://portal.acme.example.com/*
+  webOrigins:
+    - https://portal.acme.example.com
+  rootUrl: https://portal.acme.example.com
+
+  clientAuthenticatorType: client_secret
+  secretRef:
+    name: acme-portal-client-secret
+  secretOutput:
+    name: acme-portal-credentials
+
+  defaultClientScopes:
+    - profile
+    - email
+    - acme-roles
+  optionalClientScopes:
+    - offline_access
+
+  attributes:
+    post.logout.redirect.uris: "https://portal.acme.example.com"

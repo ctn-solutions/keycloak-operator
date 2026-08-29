@@ -1,0 +1,50 @@
+# An OIDC identity provider (broker). Sensitive config entries such as
+# clientSecret are injected from a Secret through configSecretRef and never
+# written inline.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: corp-idp-secret
+  namespace: keycloak-system
+stringData:
+  clientSecret: change-me-as-well
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: IdentityProvider
+metadata:
+  name: corp-oidc
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  alias: corp
+  providerId: oidc
+
+  displayName: Corporate SSO
+  enabled: true
+  trustEmail: true
+  storeToken: false
+  firstBrokerLoginFlowAlias: first broker login
+
+  config:
+    clientId: acme-broker
+    authorizationUrl: https://sso.corp.example.com/realms/corp/protocol/openid-connect/auth
+    tokenUrl: https://sso.corp.example.com/realms/corp/protocol/openid-connect/token
+    userinfoUrl: https://sso.corp.example.com/realms/corp/protocol/openid-connect/userinfo
+    issuer: https://sso.corp.example.com/realms/corp
+    validateSignature: "true"
+    jwksUrl: https://sso.corp.example.com/realms/corp/protocol/openid-connect/certs
+    useJwksUrl: "true"
+  configSecretRef:
+    name: corp-idp-secret
+    keys:
+      clientSecret: clientSecret
+
+  mappers:
+    - name: email
+      identityProviderMapper: oidc-user-attribute-idp-mapper
+      config:
+        claim: email
+        user.attribute: email

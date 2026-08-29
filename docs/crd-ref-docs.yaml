@@ -1,0 +1,8 @@
+processor:
+  ignoreTypes:
+    - "(KeycloakConnectionList|RealmList|ClientList|ClientScopeList|RealmRoleList|IdentityProviderList|GroupList)$"
+  ignoreFields:
+    - "status$"
+    - "TypeMeta$"
+render:
+  kubernetesVersion: 1.30

@@ -1,0 +1,74 @@
+# A client scope with a protocol mapper, plus realm roles and a group that
+# consumes them. Role mappings are enforced exactly as written: an empty list
+# clears them, removing the field leaves them untouched.
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: ClientScope
+metadata:
+  name: acme-roles-scope
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  name: acme-roles
+
+  description: Adds the platform roles claim to tokens
+  protocol: openid-connect
+
+  protocolMappers:
+    - name: acme-roles
+      protocol: openid-connect
+      protocolMapper: oidc-usermodel-realm-role-mapper
+      config:
+        multivalued: "true"
+        claim.name: acme_roles
+        jsonType.label: String
+        access.token.claim: "true"
+        id.token.claim: "false"
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: RealmRole
+metadata:
+  name: acme-reader
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  name: reader
+  description: Read-only access to the ACME platform
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: RealmRole
+metadata:
+  name: acme-manager
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  name: manager
+  description: Includes the reader role
+  composite: true
+  composites:
+    realmRoles:
+      - reader
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: Group
+metadata:
+  name: acme-platform-team
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+  name: platform-team
+
+  realmRoles:
+    - reader
+
+  attributes:
+    cost-center:
+      - "4242"

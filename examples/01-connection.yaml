@@ -1,0 +1,25 @@
+# Connection to the Keycloak server. The credentials Secret must live in the
+# same namespace and provide "username" and "password" keys (for auth:
+# password) or "clientId"/"clientSecret" (for auth: client).
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-admin-credentials
+  namespace: keycloak-system
+stringData:
+  username: admin
+  password: change-me
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: KeycloakConnection
+metadata:
+  name: production
+  namespace: keycloak-system
+spec:
+  url: https://keycloak.example.com
+  credentialsSecretRef: keycloak-admin-credentials
+  # auth: client            # use a service-account client instead of a user
+  # adminRealm: master      # realm holding the admin credentials
+  # tls:
+  #   insecureSkipVerify: false

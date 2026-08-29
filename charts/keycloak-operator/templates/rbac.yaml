@@ -1,0 +1,102 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "keycloak-operator.fullname" . }}
+  labels:
+    {{- include "keycloak-operator.labels" . | nindent 4 }}
+rules:
+  # Access to connection credentials stored in Secrets.
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  # CRUD on the operator's managed Keycloak resources.
+  - apiGroups:
+      - keycloak.ctn-solutions.io
+    resources:
+      - client
+      - clientscope
+      - group
+      - identityprovider
+      - realmrole
+      - realms
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Finalizer updates for graceful deletion.
+  - apiGroups:
+      - keycloak.ctn-solutions.io
+    resources:
+      - client/finalizers
+      - clientscope/finalizers
+      - group/finalizers
+      - identityprovider/finalizers
+      - realmrole/finalizers
+      - realms/finalizers
+    verbs:
+      - update
+  # Status subresources.
+  - apiGroups:
+      - keycloak.ctn-solutions.io
+    resources:
+      - client/status
+      - clientscope/status
+      - group/status
+      - identityprovider/status
+      - keycloakconnections/status
+      - realmrole/status
+      - realms/status
+    verbs:
+      - get
+      - patch
+      - update
+  # Keycloak connections are read-only for the operator.
+  - apiGroups:
+      - keycloak.ctn-solutions.io
+    resources:
+      - keycloakconnections
+    verbs:
+      - get
+      - list
+      - watch
+  # Kubernetes events emitted by controllers.
+  - apiGroups:
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "keycloak-operator.fullname" . }}
+  labels:
+    {{- include "keycloak-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "keycloak-operator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "keycloak-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
