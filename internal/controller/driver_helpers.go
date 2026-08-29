@@ -238,32 +238,6 @@ func enforceScopeAssignments(ctx context.Context, kc *keycloak.Client, realm, cl
 	return true, nil
 }
 
-// diffByName splits desired and current name sets into additions and
-// removals.
-func diffByName(desired []string, current []map[string]any) (toAdd []string, toRemove []string) {
-	desiredSet := map[string]struct{}{}
-	for _, name := range desired {
-		desiredSet[name] = struct{}{}
-	}
-	currentSet := map[string]struct{}{}
-	for _, rep := range current {
-		if name, ok := rep["name"].(string); ok {
-			currentSet[name] = struct{}{}
-		}
-	}
-	for name := range desiredSet {
-		if _, ok := currentSet[name]; !ok {
-			toAdd = append(toAdd, name)
-		}
-	}
-	for name := range currentSet {
-		if _, ok := desiredSet[name]; !ok {
-			toRemove = append(toRemove, name)
-		}
-	}
-	return toAdd, toRemove
-}
-
 // resolveRealmRoles fetches the representations of realm roles by name.
 func resolveRealmRoles(ctx context.Context, kc *keycloak.Client, realm string, names []string) ([]map[string]any, error) {
 	var out []map[string]any

@@ -33,18 +33,6 @@ import (
 	keycloakv1alpha1 "github.com/ctn-solutions/keycloak-operator/api/v1alpha1"
 )
 
-func conditionOf(t *testing.T, obj client.Object, condType string) metav1.Condition {
-	t.Helper()
-	status := obj.(interface {
-		GetResourceStatus() *keycloakv1alpha1.ResourceStatus
-	}).GetResourceStatus()
-	cond := meta.FindStatusCondition(status.Conditions, condType)
-	if cond == nil {
-		t.Fatalf("condition %s not found on %s", condType, obj.GetName())
-	}
-	return *cond
-}
-
 func eventually(t *testing.T, description string, probe func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(eventuallyTimeout)

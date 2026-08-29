@@ -82,9 +82,9 @@ func TestDoMapsErrors(t *testing.T) {
 	if err := c.Do(ctx, "GET", "/admin/realms/r/clash", nil, nil); !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected ErrConflict, got %v", err)
 	}
-	err, ok := c.Do(ctx, "GET", "/admin/realms/r/boom", nil, nil).(*APIError)
-	if !ok || err.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected APIError 500, got %v", err)
+	var apiErr *APIError
+	if !errors.As(c.Do(ctx, "GET", "/admin/realms/r/boom", nil, nil), &apiErr) || apiErr.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected APIError 500, got %v", c.Do(ctx, "GET", "/admin/realms/r/boom", nil, nil))
 	}
 }
 

@@ -187,7 +187,7 @@ func main() {
 	}
 
 	provider := keycloak.NewProvider(mgr.GetClient())
-	engine := controller.NewEngine(mgr.GetClient(), provider, mgr.GetEventRecorderFor("keycloak-operator"), resyncPeriod)
+	engine := controller.NewEngine(mgr.GetClient(), provider, mgr.GetEventRecorder("keycloak-operator"), resyncPeriod)
 
 	if err := (&controller.KeycloakConnectionReconciler{
 		Client:   mgr.GetClient(),

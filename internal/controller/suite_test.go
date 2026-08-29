@@ -85,7 +85,7 @@ func runSuite(m *testing.M) int {
 	k8sClient = mgr.GetClient()
 
 	provider := keycloak.NewProvider(k8sClient)
-	engine := NewEngine(k8sClient, provider, mgr.GetEventRecorderFor("test"), testResync)
+	engine := NewEngine(k8sClient, provider, mgr.GetEventRecorder("test"), testResync)
 
 	for _, setup := range []func(ctrl.Manager) error{
 		func(m ctrl.Manager) error {

@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -90,12 +90,12 @@ type Driver interface {
 type Engine struct {
 	client   client.Client
 	provider *keycloak.Provider
-	recorder record.EventRecorder
+	recorder events.EventRecorder
 	resync   time.Duration
 }
 
 // NewEngine builds an engine.
-func NewEngine(c client.Client, provider *keycloak.Provider, recorder record.EventRecorder, resync time.Duration) *Engine {
+func NewEngine(c client.Client, provider *keycloak.Provider, recorder events.EventRecorder, resync time.Duration) *Engine {
 	if resync <= 0 {
 		resync = DefaultResync
 	}
@@ -141,7 +141,7 @@ func (e *Engine) Reconcile(ctx context.Context, obj ManagedObject, drv Driver) (
 		if err := e.client.Update(ctx, obj); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
 	// Protected resources.
@@ -378,7 +378,7 @@ func (e *Engine) patchStatus(ctx context.Context, obj ManagedObject, base client
 
 func (e *Engine) record(obj ManagedObject, eventType, reason, message string) {
 	if e.recorder != nil {
-		e.recorder.Event(obj, eventType, reason, message)
+		e.recorder.Eventf(obj, nil, eventType, reason, "Reconciling", message)
 	}
 }
 
