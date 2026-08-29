@@ -364,7 +364,10 @@ func (GroupDriver) PreparePayload(context.Context, *keycloak.Client, ManagedObje
 // PostApply enforces the realm and client role mappings of the group.
 func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj ManagedObject, _ client.Client, remote map[string]any) (bool, error) {
 	spec := specOf[*keycloakv1alpha1.GroupSpec](obj)
-	id := remote["id"].(string)
+	id, _ := remote["id"].(string)
+	if id == "" {
+		return false, fmt.Errorf("server representation has no id")
+	}
 
 	mappings, err := kc.GetGroupRoleMappings(ctx, spec.TargetRealm(), id)
 	if err != nil {
@@ -387,7 +390,7 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 		if err != nil {
 			return changed, err
 		}
-		added, removed, err := applyRoleDiff(ctx, kc, spec.TargetRealm(), id, "", desiredRealm, currentRealm, kc.AddGroupRealmRoles, kc.RemoveGroupRealmRoles)
+		added, removed, err := applyRoleDiff(ctx, spec.TargetRealm(), id, desiredRealm, currentRealm, kc.AddGroupRealmRoles, kc.RemoveGroupRealmRoles)
 		if err != nil {
 			return changed, err
 		}
@@ -455,7 +458,7 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 		if mapping, ok := currentByClient[clientID]; ok {
 			current = mapping.mappings
 		}
-		added, removed, err := applyRoleDiff(ctx, kc, spec.TargetRealm(), id, uuid, desiredRoles, current,
+		added, removed, err := applyRoleDiff(ctx, spec.TargetRealm(), id, desiredRoles, current,
 			func(ctx context.Context, realm, groupID string, reps []map[string]any) error {
 				return kc.AddGroupClientRoles(ctx, realm, groupID, uuid, reps)
 			},
@@ -473,7 +476,7 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 
 // applyRoleDiff diffs desired against current role representations by id and
 // applies additions and removals through the given functions.
-func applyRoleDiff(ctx context.Context, kc *keycloak.Client, realm, groupID, _ string,
+func applyRoleDiff(ctx context.Context, realm, groupID string,
 	desired []map[string]any, current []map[string]any,
 	add func(context.Context, string, string, []map[string]any) error,
 	remove func(context.Context, string, string, []map[string]any) error) (bool, bool, error) {

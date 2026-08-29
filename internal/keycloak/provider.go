@@ -49,7 +49,6 @@ type Provider struct {
 type cachedClient struct {
 	kc          *Client
 	connVersion string
-	secretName  string
 	secretVer   string
 }
 
@@ -65,6 +64,13 @@ func NewProvider(reader client.Reader) *Provider {
 func (p *Provider) For(ctx context.Context, namespace, name string) (*Client, error) {
 	var conn keycloakv1alpha1.KeycloakConnection
 	if err := p.reader.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &conn); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Drop the cached client so deleted connections do not keep
+			// credentials in memory.
+			p.mu.Lock()
+			delete(p.byName, namespace+"/"+name)
+			p.mu.Unlock()
+		}
 		return nil, fmt.Errorf("get keycloak connection %s/%s: %w", namespace, name, err)
 	}
 
@@ -79,7 +85,7 @@ func (p *Provider) For(ctx context.Context, namespace, name string) (*Client, er
 
 	p.mu.Lock()
 	cached, ok := p.byName[key]
-	if ok && cached.connVersion == connVersion && cached.secretName == secret.Name && cached.secretVer == secretVersion {
+	if ok && cached.connVersion == connVersion && cached.secretVer == secretVersion {
 		kc := cached.kc
 		p.mu.Unlock()
 		return kc, nil
@@ -96,7 +102,6 @@ func (p *Provider) For(ctx context.Context, namespace, name string) (*Client, er
 	p.byName[key] = &cachedClient{
 		kc:          kc,
 		connVersion: connVersion,
-		secretName:  secret.Name,
 		secretVer:   secretVersion,
 	}
 	p.mu.Unlock()
@@ -139,10 +144,4 @@ func clientConfig(conn *keycloakv1alpha1.KeycloakConnection, secret *corev1.Secr
 		}
 	}
 	return cfg, nil
-}
-
-// IsMissing reports whether an error from For means the connection or its
-// secret does not exist (yet).
-func IsMissing(err error) bool {
-	return apierrors.IsNotFound(err)
 }

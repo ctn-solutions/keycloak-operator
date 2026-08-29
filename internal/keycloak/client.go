@@ -94,9 +94,6 @@ func New(cfg Config) *Client {
 	}
 }
 
-// Config returns a copy of the client configuration.
-func (c *Client) Config() Config { return c.cfg }
-
 // Token returns a valid access token, refreshing it when it is about to
 // expire.
 func (c *Client) Token(ctx context.Context) (string, error) {

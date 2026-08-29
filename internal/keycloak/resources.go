@@ -309,6 +309,10 @@ func (c *Client) DeleteIdentityProvider(ctx context.Context, realm, alias string
 
 // FindGroup resolves a top-level group by name. Returns ErrNotFound when no
 // group matches.
+//
+// The search endpoint returns slim representations without attributes, so
+// the id is resolved by search and the full representation is then fetched
+// by id.
 func (c *Client) FindGroup(ctx context.Context, realm, name string) (map[string]any, error) {
 	path := fmt.Sprintf("%s/groups?search=%s&exact=true&max=2", realmPath(realm), url.QueryEscape(name))
 	var out []map[string]any
@@ -317,10 +321,23 @@ func (c *Client) FindGroup(ctx context.Context, realm, name string) (map[string]
 	}
 	for _, rep := range out {
 		if rep["name"] == name {
-			return rep, nil
+			id, _ := rep["id"].(string)
+			if id == "" {
+				return nil, fmt.Errorf("%w: group %q has no id", ErrNotFound, name)
+			}
+			return c.GetGroup(ctx, realm, id)
 		}
 	}
 	return nil, fmt.Errorf("%w: group %q", ErrNotFound, name)
+}
+
+// GetGroup fetches a group by id.
+func (c *Client) GetGroup(ctx context.Context, realm, id string) (map[string]any, error) {
+	var out map[string]any
+	if err := c.Do(ctx, "GET", fmt.Sprintf("%s/groups/%s", realmPath(realm), url.PathEscape(id)), nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // CreateGroup creates a group from a representation payload.
@@ -351,16 +368,6 @@ func (c *Client) GetGroupRoleMappings(ctx context.Context, realm, groupID string
 	return out, nil
 }
 
-// GetGroupRealmRoles returns the realm roles mapped to a group.
-func (c *Client) GetGroupRealmRoles(ctx context.Context, realm, groupID string) ([]map[string]any, error) {
-	path := fmt.Sprintf("%s/groups/%s/role-mappings/realm", realmPath(realm), url.PathEscape(groupID))
-	var out []map[string]any
-	if err := c.Do(ctx, "GET", path, nil, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // AddGroupRealmRoles maps realm roles onto a group.
 func (c *Client) AddGroupRealmRoles(ctx context.Context, realm, groupID string, roles []map[string]any) error {
 	path := fmt.Sprintf("%s/groups/%s/role-mappings/realm", realmPath(realm), url.PathEscape(groupID))
@@ -371,16 +378,6 @@ func (c *Client) AddGroupRealmRoles(ctx context.Context, realm, groupID string, 
 func (c *Client) RemoveGroupRealmRoles(ctx context.Context, realm, groupID string, roles []map[string]any) error {
 	path := fmt.Sprintf("%s/groups/%s/role-mappings/realm", realmPath(realm), url.PathEscape(groupID))
 	return c.Do(ctx, "DELETE", path, roles, nil)
-}
-
-// GetGroupClientRoles returns the roles of one client mapped to a group.
-func (c *Client) GetGroupClientRoles(ctx context.Context, realm, groupID, clientUUID string) ([]map[string]any, error) {
-	path := fmt.Sprintf("%s/groups/%s/role-mappings/clients/%s", realmPath(realm), url.PathEscape(groupID), url.PathEscape(clientUUID))
-	var out []map[string]any
-	if err := c.Do(ctx, "GET", path, nil, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // AddGroupClientRoles maps roles of one client onto a group.

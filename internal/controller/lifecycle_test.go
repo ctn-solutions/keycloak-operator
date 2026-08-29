@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -615,6 +616,134 @@ func TestFailIfExistsPolicy(t *testing.T) {
 		t.Fatalf("create realm: %v", err)
 	}
 	eventually(t, "FailIfExists conflict reported", func() bool {
+		var latest keycloakv1alpha1.Realm
+		if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(realm), &latest); err != nil {
+			return false
+		}
+		cond := meta.FindStatusCondition(latest.Status.Conditions, keycloakv1alpha1.ConditionReady)
+		return cond != nil && cond.Status == metav1.ConditionFalse && cond.Reason == keycloakv1alpha1.ReasonAlreadyExists
+	})
+}
+
+func TestLastAppliedExcludesInjectedSecrets(t *testing.T) {
+	ctx := context.Background()
+	createConnection(t, "annot-conn")
+
+	smtpSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "smtp-secret", Namespace: testNS},
+		Data:       map[string][]byte{"password": []byte("smtp-s3cret-value")},
+	}
+	if err := k8sClient.Create(ctx, smtpSecret); err != nil {
+		t.Fatalf("create smtp secret: %v", err)
+	}
+
+	realm := &keycloakv1alpha1.Realm{
+		ObjectMeta: metav1.ObjectMeta{Name: "annot-realm", Namespace: testNS},
+		Spec: keycloakv1alpha1.RealmSpec{
+			KeycloakRef: keycloakv1alpha1.KeycloakRef{Name: "annot-conn"},
+			Realm:       "annot",
+			SMTPServer:  map[string]string{"host": "smtp.example.com", "from": "noreply@example.com"},
+			SMTPServerSecretRef: &keycloakv1alpha1.SecretKeysSelector{
+				Name: "smtp-secret",
+				Keys: map[string]string{"password": "password"},
+			},
+		},
+	}
+	if err := k8sClient.Create(ctx, realm); err != nil {
+		t.Fatalf("create realm: %v", err)
+	}
+	eventually(t, "realm with smtp synced", func() bool {
+		var latest keycloakv1alpha1.Realm
+		if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(realm), &latest); err != nil {
+			return false
+		}
+		cond := meta.FindStatusCondition(latest.Status.Conditions, keycloakv1alpha1.ConditionSynced)
+		return cond != nil && cond.Status == metav1.ConditionTrue
+	})
+
+	// The password must reach the server but never the annotation.
+	rep, _ := fakeKC.Realm("annot")
+	smtp, _ := rep["smtpServer"].(map[string]any)
+	if smtp["password"] != "smtp-s3cret-value" {
+		t.Fatalf("expected injected password on the server, got %v", smtp)
+	}
+	var latest keycloakv1alpha1.Realm
+	if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(realm), &latest); err != nil {
+		t.Fatalf("get realm: %v", err)
+	}
+	annotation := latest.GetAnnotations()[keycloakv1alpha1.LastAppliedAnnotation]
+	if annotation == "" {
+		t.Fatal("last-applied annotation must be recorded")
+	}
+	if strings.Contains(annotation, "smtp-s3cret-value") {
+		t.Fatal("last-applied annotation leaks the injected secret value")
+	}
+}
+
+func TestManagedMarkerSurvivesSpecUpdate(t *testing.T) {
+	ctx := context.Background()
+	createConnection(t, "marker-conn")
+
+	realm := &keycloakv1alpha1.Realm{
+		ObjectMeta: metav1.ObjectMeta{Name: "marker-realm", Namespace: testNS},
+		Spec: keycloakv1alpha1.RealmSpec{
+			KeycloakRef: keycloakv1alpha1.KeycloakRef{Name: "marker-conn"},
+			Realm:       "marker",
+			Attributes:  map[string]string{"team": "platform"},
+		},
+	}
+	if err := k8sClient.Create(ctx, realm); err != nil {
+		t.Fatalf("create realm: %v", err)
+	}
+	eventually(t, "marker realm synced", func() bool {
+		var latest keycloakv1alpha1.Realm
+		if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(realm), &latest); err != nil {
+			return false
+		}
+		cond := meta.FindStatusCondition(latest.Status.Conditions, keycloakv1alpha1.ConditionSynced)
+		return cond != nil && cond.Status == metav1.ConditionTrue
+	})
+
+	// Update the spec attributes: the managed marker must survive.
+	updateWithRetry(t, realm, func(r *keycloakv1alpha1.Realm) {
+		r.Spec.Attributes = map[string]string{"team": "platform", "env": "test"}
+	})
+	eventually(t, "attributes updated with marker intact", func() bool {
+		rep, _ := fakeKC.Realm("marker")
+		attrs, _ := rep["attributes"].(map[string]any)
+		return attrs["env"] == "test" &&
+			attrs[keycloakv1alpha1.ManagedAnnotation] == keycloakv1alpha1.ManagedValue
+	})
+}
+
+func TestFailIfExistsOnManagedResource(t *testing.T) {
+	ctx := context.Background()
+	createConnection(t, "ffi-conn")
+
+	realm := &keycloakv1alpha1.Realm{
+		ObjectMeta: metav1.ObjectMeta{Name: "ffi-realm", Namespace: testNS},
+		Spec: keycloakv1alpha1.RealmSpec{
+			KeycloakRef: keycloakv1alpha1.KeycloakRef{Name: "ffi-conn"},
+			Realm:       "ffi",
+		},
+	}
+	if err := k8sClient.Create(ctx, realm); err != nil {
+		t.Fatalf("create realm: %v", err)
+	}
+	eventually(t, "ffi realm synced", func() bool {
+		var latest keycloakv1alpha1.Realm
+		if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(realm), &latest); err != nil {
+			return false
+		}
+		cond := meta.FindStatusCondition(latest.Status.Conditions, keycloakv1alpha1.ConditionSynced)
+		return cond != nil && cond.Status == metav1.ConditionTrue
+	})
+
+	// Flipping to FailIfExists must fail even though the operator manages it.
+	updateWithRetry(t, realm, func(r *keycloakv1alpha1.Realm) {
+		r.Spec.AdoptionPolicy = keycloakv1alpha1.AdoptionFailIfExists.Ptr()
+	})
+	eventually(t, "FailIfExists enforced on managed resource", func() bool {
 		var latest keycloakv1alpha1.Realm
 		if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(realm), &latest); err != nil {
 			return false

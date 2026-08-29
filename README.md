@@ -132,7 +132,8 @@ periodic resync.
 
 ### Secrets
 
-Sensitive values never live in custom resources:
+Sensitive values never live in custom resources (the operator injects them from Secrets
+at reconciliation time and never records them in status, events or annotations):
 
 - `Client.spec.secretRef` — injects the client secret from a Secret you own.
 - `Client.spec.secretOutput` — exports the effective client secret to a Secret owned by
@@ -140,6 +141,22 @@ Sensitive values never live in custom resources:
 - `IdentityProvider.spec.configSecretRef` — injects broker config values (e.g.
   `clientSecret`) from a Secret.
 - `Realm.spec.smtpServerSecretRef` — injects SMTP credentials.
+
+## Security model
+
+- The operator holds **cluster-wide Secret read access** (connection credentials may live
+  in any namespace) and writes exported client secrets next to the resources that own
+  them. Compromise of the operator's ServiceAccount exposes cluster Secrets — grant the
+  `KeycloakConnection` and `Client` resources to trusted users only, or run the operator
+  with a namespace-scoped RBAC setup if that trust boundary is too wide.
+- `KeycloakConnection.spec.url` is a tenant-controlled outbound URL. The CRD schema
+  restricts it to `http(s)://`, but creating connections should be limited to platform
+  administrators to prevent use as an internal network probe.
+- Exported client secrets (`secretOutput`) are created and owned by the operator; a
+  pre-existing Secret with the same name is never overwritten — reconciliation fails with
+  a clear condition instead.
+- Container images run as non-root from a distroless base; base images are pinned by
+  digest.
 
 ## Compatibility
 

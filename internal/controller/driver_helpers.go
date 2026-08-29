@@ -123,6 +123,19 @@ func ensureOutputSecret(ctx context.Context, r client.Client, obj ManagedObject,
 	err := r.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: name}, &existing)
 	switch {
 	case err == nil:
+		// Never touch a Secret the operator does not own: a name collision
+		// with a user-managed Secret must fail loudly instead of clobbering
+		// foreign data.
+		owned := false
+		for _, ref := range existing.OwnerReferences {
+			if ref.UID == obj.GetUID() && ref.Controller != nil && *ref.Controller {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			return false, fmt.Errorf("secret %s/%s already exists and is not owned by this resource; choose another secretOutput name", existing.Namespace, existing.Name)
+		}
 		if string(existing.Data[key]) == value {
 			return false, nil
 		}

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -101,7 +102,10 @@ func (ClientDriver) PreparePayload(ctx context.Context, _ *keycloak.Client, obj 
 // assignments.
 func (ClientDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj ManagedObject, r client.Client, remote map[string]any) (bool, error) {
 	spec := specOf[*keycloakv1alpha1.ClientSpec](obj)
-	id := remote["id"].(string)
+	id, _ := remote["id"].(string)
+	if id == "" {
+		return false, fmt.Errorf("server representation has no id")
+	}
 	changed := false
 
 	if spec.SecretOutput != nil {
@@ -118,6 +122,9 @@ func (ClientDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Mana
 			return changed, err
 		}
 		changed = changed || wrote
+		if client, ok := obj.(*keycloakv1alpha1.Client); ok {
+			client.Status.SecretName = spec.SecretOutput.Name
+		}
 	}
 
 	if spec.DefaultClientScopes != nil {

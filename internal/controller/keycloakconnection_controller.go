@@ -42,7 +42,7 @@ const connectionRetryInterval = 5 * time.Minute
 type KeycloakConnectionReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
-	Provider *keycloakProvider
+	Provider *keycloak.Provider
 }
 
 // +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=keycloakconnections,verbs=get;list;watch
@@ -123,7 +123,3 @@ func serverVersion(info map[string]any) string {
 	version, _ := systemInfo["version"].(string)
 	return version
 }
-
-// keycloakProvider aliases the provider type so the controller package keeps
-// a single import surface.
-type keycloakProvider = keycloak.Provider

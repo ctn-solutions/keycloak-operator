@@ -108,6 +108,17 @@ func (e *Engine) Reconcile(ctx context.Context, obj ManagedObject, drv Driver) (
 	status := obj.GetResourceStatus()
 	base := obj.DeepCopyObject().(client.Object)
 
+	// Deletion with the Orphan policy needs no server access: settle it
+	// before requiring a connection so resources can be garbage-collected
+	// even while the server is unreachable.
+	if !obj.GetDeletionTimestamp().IsZero() && drv.Spec(obj).Deletion() == keycloakv1alpha1.DeletionOrphan {
+		controllerutil.RemoveFinalizer(obj, keycloakv1alpha1.FinalizerName)
+		if err := e.client.Update(ctx, obj); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
 	// Connection resolution.
 	kc, err := e.provider.For(ctx, obj.GetNamespace(), drv.Spec(obj).ConnectionName())
 	if err != nil {
@@ -152,11 +163,14 @@ func (e *Engine) Reconcile(ctx context.Context, obj ManagedObject, drv Driver) (
 		return ctrl.Result{}, nil
 	}
 	lastApplied := obj.GetAnnotations()[keycloakv1alpha1.LastAppliedAnnotation]
-	payload, err := EffectivePayload(specMap, lastApplied)
+	effective, err := EffectivePayload(specMap, lastApplied)
 	if err != nil {
 		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonFailed, err.Error())
 		return ctrl.Result{}, nil
 	}
+	// EffectivePayload returns a deep copy, so the secret injection and
+	// marker stamping below never touch the recorded spec snapshot.
+	payload := effective
 
 	remote, err := drv.Get(ctx, kc, obj)
 	switch {
@@ -206,13 +220,12 @@ func (e *Engine) handleCreate(ctx context.Context, obj ManagedObject, drv Driver
 			keycloakv1alpha1.ReasonRetrying, err.Error())
 		return ctrl.Result{}, err
 	}
-	postChanged, err := drv.PostApply(ctx, kc, obj, e.client, remote)
-	if err != nil {
+	if _, err := drv.PostApply(ctx, kc, obj, e.client, remote); err != nil {
 		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonFailed, err.Error())
 		return ctrl.Result{RequeueAfter: secretRetry}, nil
 	}
 
-	return e.finalize(ctx, obj, base, specMap, true || postChanged)
+	return e.finalize(ctx, obj, base, specMap, true)
 }
 
 func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driver, kc *keycloak.Client,
@@ -220,14 +233,23 @@ func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driv
 	status := obj.GetResourceStatus()
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
+	// FailIfExists refuses the resource whenever it exists, even one this
+	// operator previously managed.
+	if drv.Spec(obj).Adoption() == keycloakv1alpha1.AdoptionFailIfExists {
+		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonAlreadyExists,
+			"adoptionPolicy is FailIfExists and the resource exists on the server")
+		return ctrl.Result{}, nil
+	}
+
 	// Managed-by-us detection: the remote marker, or a last-applied
 	// annotation from a previous reconciliation of this resource.
 	managed := drv.IsManaged(remote) || obj.GetAnnotations()[keycloakv1alpha1.LastAppliedAnnotation] != ""
 
+	adopting := false
 	if !managed {
 		switch drv.Spec(obj).Adoption() {
 		case keycloakv1alpha1.AdoptionAdopt:
-			drv.ManagedMarker(payload)
+			adopting = true
 			e.record(obj, corev1.EventTypeNormal, "Adopted", fmt.Sprintf("Adopted existing %s", kind))
 		default:
 			e.fail(ctx, obj, base, keycloakv1alpha1.ReasonAlreadyExists,
@@ -236,12 +258,18 @@ func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driv
 		}
 	}
 
+	// Stamp the managed marker on every pass so it survives spec-driven
+	// attribute updates and is (re-)written on adoption.
+	drv.ManagedMarker(payload)
+
 	if err := drv.PreparePayload(ctx, kc, obj, e.client, payload); err != nil {
 		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonSecretMissing, err.Error())
 		return ctrl.Result{RequeueAfter: secretRetry}, nil
 	}
 
-	changed := PayloadDiffers(remote, payload)
+	// Adoption always issues one update so the marker reaches the server
+	// even when the spec already matches.
+	changed := adopting || PayloadDiffers(remote, payload)
 	if changed {
 		merged := MergePayload(cloneMap(remote), payload)
 		if err := drv.Update(ctx, kc, obj, drv.ID(remote), merged); err != nil {
@@ -271,6 +299,7 @@ func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driv
 // schedules the next drift-correction pass.
 func (e *Engine) finalize(ctx context.Context, obj ManagedObject, base client.Object, specMap map[string]any, synced bool) (ctrl.Result, error) {
 	status := obj.GetResourceStatus()
+	status.ObservedGeneration = obj.GetGeneration()
 
 	if encoded, err := json.Marshal(specMap); err == nil {
 		annotations := obj.GetAnnotations()
@@ -327,12 +356,18 @@ func (e *Engine) setCondition(ctx context.Context, status *keycloakv1alpha1.Reso
 	e.patchStatus(ctx, obj, base)
 }
 
-// fail marks the resource as terminally failed.
+// fail marks the resource as failed. The warning event is only recorded
+// when the failure message changes, so periodic retries do not spam the
+// event log.
 func (e *Engine) fail(ctx context.Context, obj ManagedObject, base client.Object, reason, message string) {
 	status := obj.GetResourceStatus()
+	previous := meta.FindStatusCondition(status.Conditions, keycloakv1alpha1.ConditionReady)
+	changed := previous == nil || previous.Reason != reason || previous.Message != message
 	e.setCondition(ctx, status, obj, base, keycloakv1alpha1.ConditionReady, metav1.ConditionFalse, reason, message)
 	e.setCondition(ctx, status, obj, base, keycloakv1alpha1.ConditionSynced, metav1.ConditionFalse, reason, message)
-	e.record(obj, corev1.EventTypeWarning, reason, message)
+	if changed {
+		e.record(obj, corev1.EventTypeWarning, reason, message)
+	}
 }
 
 func (e *Engine) patchStatus(ctx context.Context, obj ManagedObject, base client.Object) {

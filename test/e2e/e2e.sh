@@ -111,6 +111,15 @@ helm upgrade --install keycloak-operator "$REPO_ROOT/charts/keycloak-operator" \
   --set resyncPeriod=30s >/dev/null
 wait_for "operator ready" 180 kubectl rollout status deployment/keycloak-operator -n keycloak-operator-system
 
+log "Resetting server state left by previous runs"
+# A realm orphaned by a previous run would be refused under the default
+# CreateOnly adoption policy, which is correct behaviour — remove it so the
+# suite starts from a clean server.
+if api GET /admin/realms/acme >/dev/null 2>&1; then
+  api DELETE /admin/realms/acme >/dev/null 2>&1 || true
+  echo "removed leftover realm acme"
+fi
+
 log "Applying example resources"
 kubectl create namespace keycloak-system --dry-run=client -o yaml | kubectl apply -f -
 # Point the examples at the local Keycloak server.
