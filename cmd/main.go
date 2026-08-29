@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,6 +38,7 @@ import (
 
 	keycloakv1alpha1 "github.com/ctn-solutions/keycloak-operator/api/v1alpha1"
 	"github.com/ctn-solutions/keycloak-operator/internal/controller"
+	"github.com/ctn-solutions/keycloak-operator/internal/keycloak"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -61,6 +63,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var resyncPeriod time.Duration
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -79,6 +82,8 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.DurationVar(&resyncPeriod, "resync-period", controller.DefaultResync,
+		"Period between drift-correction passes for managed resources.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -178,9 +183,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	provider := keycloak.NewProvider(mgr.GetClient())
+	engine := controller.NewEngine(mgr.GetClient(), provider, mgr.GetEventRecorderFor("keycloak-operator"), resyncPeriod)
+
 	if err := (&controller.KeycloakConnectionReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Provider: provider,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "keycloakconnection")
 		os.Exit(1)
@@ -188,6 +197,7 @@ func main() {
 	if err := (&controller.RealmReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Engine: engine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "realm")
 		os.Exit(1)
@@ -195,6 +205,7 @@ func main() {
 	if err := (&controller.ClientReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Engine: engine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "client")
 		os.Exit(1)
@@ -202,6 +213,7 @@ func main() {
 	if err := (&controller.ClientScopeReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Engine: engine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "clientscope")
 		os.Exit(1)
@@ -209,6 +221,7 @@ func main() {
 	if err := (&controller.RealmRoleReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Engine: engine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "realmrole")
 		os.Exit(1)
@@ -216,6 +229,7 @@ func main() {
 	if err := (&controller.IdentityProviderReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Engine: engine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "identityprovider")
 		os.Exit(1)
@@ -223,6 +237,7 @@ func main() {
 	if err := (&controller.GroupReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Engine: engine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "group")
 		os.Exit(1)

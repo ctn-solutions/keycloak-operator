@@ -312,6 +312,17 @@ func (c *Client) DeleteGroup(ctx context.Context, realm, id string) error {
 
 // --- Group role mappings ---
 
+// GetGroupRoleMappings returns the complete role-mapping document of a
+// group, including realmMappings and per-client clientMappings.
+func (c *Client) GetGroupRoleMappings(ctx context.Context, realm, groupID string) (map[string]any, error) {
+	path := fmt.Sprintf("%s/groups/%s/role-mappings", realmPath(realm), url.PathEscape(groupID))
+	var out map[string]any
+	if err := c.Do(ctx, "GET", path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GetGroupRealmRoles returns the realm roles mapped to a group.
 func (c *Client) GetGroupRealmRoles(ctx context.Context, realm, groupID string) ([]map[string]any, error) {
 	path := fmt.Sprintf("%s/groups/%s/role-mappings/realm", realmPath(realm), url.PathEscape(groupID))

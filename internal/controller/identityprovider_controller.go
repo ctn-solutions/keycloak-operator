@@ -1,5 +1,5 @@
 /*
-Copyright 2026.
+Copyright 2026 CTN Solutions
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,39 +22,31 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	keycloakv1alpha1 "github.com/ctn-solutions/keycloak-operator/api/v1alpha1"
 )
 
-// IdentityProviderReconciler reconciles a IdentityProvider object
+// IdentityProviderReconciler reconciles IdentityProvider resources through the shared engine.
 type IdentityProviderReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Engine *Engine
 }
 
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityproviders,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityproviders/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityproviders/finalizers,verbs=update
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityprovider,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityprovider/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityprovider/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the IdentityProvider object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.24.1/pkg/reconcile
+// Reconcile runs the shared lifecycle for a IdentityProvider.
 func (r *IdentityProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
-
-	// TODO(user): your logic here
-
-	return ctrl.Result{}, nil
+	var obj keycloakv1alpha1.IdentityProvider
+	if err := r.Get(ctx, req.NamespacedName, &obj); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	return r.Engine.Reconcile(ctx, &obj, IdentityProviderDriver{})
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the controller.
 func (r *IdentityProviderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&keycloakv1alpha1.IdentityProvider{}).

@@ -5,14 +5,21 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - keycloak.ctn-solutions.io
   resources:
-  - clients
-  - clientscopes
-  - groups
-  - identityproviders
-  - keycloakconnections
-  - realmroles
+  - client
+  - clientscope
+  - group
+  - identityprovider
+  - realmrole
   - realms
   verbs:
   - create
@@ -25,26 +32,33 @@ rules:
 - apiGroups:
   - keycloak.ctn-solutions.io
   resources:
-  - clients/finalizers
-  - clientscopes/finalizers
-  - groups/finalizers
-  - identityproviders/finalizers
-  - keycloakconnections/finalizers
-  - realmroles/finalizers
+  - client/finalizers
+  - clientscope/finalizers
+  - group/finalizers
+  - identityprovider/finalizers
+  - realmrole/finalizers
   - realms/finalizers
   verbs:
   - update
 - apiGroups:
   - keycloak.ctn-solutions.io
   resources:
-  - clients/status
-  - clientscopes/status
-  - groups/status
-  - identityproviders/status
+  - client/status
+  - clientscope/status
+  - group/status
+  - identityprovider/status
   - keycloakconnections/status
-  - realmroles/status
+  - realmrole/status
   - realms/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections
+  verbs:
+  - get
+  - list
+  - watch
