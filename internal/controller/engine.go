@@ -147,7 +147,7 @@ func (e *Engine) Reconcile(ctx context.Context, obj ManagedObject, drv Driver) (
 
 	// Deletion.
 	if !obj.GetDeletionTimestamp().IsZero() {
-		return e.handleDeletion(ctx, obj, drv, kc)
+		return ctrl.Result{}, e.handleDeletion(ctx, obj, drv, kc)
 	}
 
 	// Finalizer.
@@ -345,20 +345,17 @@ func (e *Engine) finalize(ctx context.Context, obj ManagedObject, base client.Ob
 	return ctrl.Result{RequeueAfter: e.resync}, nil
 }
 
-func (e *Engine) handleDeletion(ctx context.Context, obj ManagedObject, drv Driver, kc *keycloak.Client) (ctrl.Result, error) {
+func (e *Engine) handleDeletion(ctx context.Context, obj ManagedObject, drv Driver, kc *keycloak.Client) error {
 	log := logf.FromContext(ctx)
 	if drv.Spec(obj).Deletion() == keycloakv1alpha1.DeletionDelete {
 		if err := drv.Delete(ctx, kc, obj); err != nil && !errors.Is(err, keycloak.ErrNotFound) {
 			log.Error(err, "Failed to delete remote resource")
-			return ctrl.Result{}, err
+			return err
 		}
 		e.record(obj, corev1.EventTypeNormal, "Deleted", "Deleted resource on Keycloak server")
 	}
 	controllerutil.RemoveFinalizer(obj, keycloakv1alpha1.FinalizerName)
-	if err := e.client.Update(ctx, obj); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return e.client.Update(ctx, obj)
 }
 
 // setCondition writes one condition and patches the object status.

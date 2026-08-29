@@ -189,17 +189,21 @@ log "Metrics verification"
 kubectl -n keycloak-operator-system port-forward svc/keycloak-operator-metrics 19090:8080 >/dev/null 2>&1 &
 METRICS_PF_PID=$!
 wait_for "metrics endpoint up" 60 bash -c "curl -sf http://localhost:19090/metrics -o /dev/null"
-M=$(curl -sf http://localhost:19090/metrics)
-for metric in \
-  keycloak_operator_reconciliations_total \
-  keycloak_operator_reconcile_duration_seconds_bucket \
-  keycloak_operator_drift_corrections_total \
-  keycloak_operator_connection_up \
-  keycloak_operator_server_info \
-  keycloak_operator_admin_requests_total \
-  keycloak_operator_admin_request_duration_seconds_bucket; do
-  echo "$M" | grep -q "^$metric" && echo "PASS: $metric exposed" || fail "metric $metric missing"
-done
+metrics_exposed() {
+  M="$(curl -sf http://localhost:19090/metrics)" || return 1
+  for metric in \
+    keycloak_operator_reconciliations_total \
+    keycloak_operator_reconcile_duration_seconds_bucket \
+    keycloak_operator_drift_corrections_total \
+    keycloak_operator_connection_up \
+    keycloak_operator_server_info \
+    keycloak_operator_admin_requests_total \
+    keycloak_operator_admin_request_duration_seconds_bucket; do
+    echo "$M" | grep -q "^$metric" || { echo "missing: $metric (fetched $(echo "$M" | wc -l) lines)" >&2; return 1; }
+  done
+  return 0
+}
+wait_for "all custom metrics exposed" 120 metrics_exposed
 echo "$M" | grep -q 'keycloak_operator_connection_up{connection="production",namespace="keycloak-system"} 1' \
   && echo "PASS: connection_up reports healthy" || fail "connection_up not healthy"
 echo "$M" | grep -q 'keycloak_operator_server_info{.*version="26.3' \
