@@ -7,19 +7,53 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
+  - configmaps
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - keycloak.ctn-solutions.io
   resources:
-  - client
-  - clientscope
-  - group
-  - identityprovider
-  - realmrole
+  - clients
+  - clientscopes
+  - groups
+  - identityproviders
+  - realmroles
   - realms
   verbs:
   - create
@@ -32,23 +66,23 @@ rules:
 - apiGroups:
   - keycloak.ctn-solutions.io
   resources:
-  - client/finalizers
-  - clientscope/finalizers
-  - group/finalizers
-  - identityprovider/finalizers
-  - realmrole/finalizers
+  - clients/finalizers
+  - clientscopes/finalizers
+  - groups/finalizers
+  - identityproviders/finalizers
+  - realmroles/finalizers
   - realms/finalizers
   verbs:
   - update
 - apiGroups:
   - keycloak.ctn-solutions.io
   resources:
-  - client/status
-  - clientscope/status
-  - group/status
-  - identityprovider/status
+  - clients/status
+  - clientscopes/status
+  - groups/status
+  - identityproviders/status
   - keycloakconnections/status
-  - realmrole/status
+  - realmroles/status
   - realms/status
   verbs:
   - get

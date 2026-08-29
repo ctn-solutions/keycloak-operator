@@ -35,8 +35,10 @@ func (RealmRoleDriver) Spec(obj ManagedObject) Spec {
 }
 
 // OperatorFields lists the spec fields that are operator bookkeeping.
+// Composites are enforced through the dedicated composites endpoints in
+// PostApply, so they are stripped from the representation payload as well.
 func (RealmRoleDriver) OperatorFields() []string {
-	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm", "composites"}
 }
 
 // Get resolves the role by name.
@@ -162,7 +164,7 @@ func (IdentityProviderDriver) Spec(obj ManagedObject) Spec {
 
 // OperatorFields lists the spec fields that are operator bookkeeping.
 func (IdentityProviderDriver) OperatorFields() []string {
-	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm", "configSecretRef", "mappers"}
 }
 
 // Get resolves the identity provider by alias.
@@ -224,9 +226,76 @@ func (IdentityProviderDriver) PreparePayload(ctx context.Context, _ *keycloak.Cl
 	return nil
 }
 
-// PostApply performs no extra work for identity providers.
-func (IdentityProviderDriver) PostApply(context.Context, *keycloak.Client, ManagedObject, client.Client, map[string]any) (bool, error) {
-	return false, nil
+// PostApply enforces the identity provider mappers through their dedicated
+// endpoints: the representation payload rejects them.
+func (IdentityProviderDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj ManagedObject, _ client.Client, _ map[string]any) (bool, error) {
+	spec := specOf[*keycloakv1alpha1.IdentityProviderSpec](obj)
+
+	current, err := kc.ListIdentityProviderMappers(ctx, spec.TargetRealm(), spec.Alias)
+	if err != nil {
+		return false, err
+	}
+	currentByName := map[string]map[string]any{}
+	for _, rep := range current {
+		if name, ok := rep["name"].(string); ok {
+			currentByName[name] = rep
+		}
+	}
+
+	desiredByName := map[string]keycloakv1alpha1.IdentityProviderMapper{}
+	for _, mapper := range spec.Mappers {
+		desiredByName[mapper.Name] = mapper
+	}
+
+	changed := false
+	for name, mapper := range desiredByName {
+		payload, err := toJSONMap(mapper)
+		if err != nil {
+			return changed, err
+		}
+		payload["identityProviderAlias"] = spec.Alias
+		if existing, ok := currentByName[name]; ok {
+			if id, ok := existing["id"].(string); ok {
+				if mappersDiffer(existing, payload) {
+					if err := kc.UpdateIdentityProviderMapper(ctx, spec.TargetRealm(), spec.Alias, id, payload); err != nil {
+						return changed, err
+					}
+					changed = true
+				}
+				continue
+			}
+		}
+		if err := kc.CreateIdentityProviderMapper(ctx, spec.TargetRealm(), spec.Alias, payload); err != nil {
+			return changed, err
+		}
+		changed = true
+	}
+	for name, rep := range currentByName {
+		if _, wanted := desiredByName[name]; !wanted {
+			if id, ok := rep["id"].(string); ok {
+				if err := kc.DeleteIdentityProviderMapper(ctx, spec.TargetRealm(), spec.Alias, id); err != nil {
+					return changed, err
+				}
+				changed = true
+			}
+		}
+	}
+	return changed, nil
+}
+
+// mappersDiffer compares a current mapper with the desired payload on the
+// keys the payload manages.
+func mappersDiffer(current, payload map[string]any) bool {
+	for k, want := range payload {
+		if k == "identityProviderAlias" {
+			continue
+		}
+		got, ok := current[k]
+		if !ok || !jsonEqual(want, got) {
+			return true
+		}
+	}
+	return false
 }
 
 // Protected performs no extra checks for identity providers.

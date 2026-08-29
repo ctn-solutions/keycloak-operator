@@ -33,9 +33,9 @@ type IdentityProviderReconciler struct {
 	Engine *Engine
 }
 
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityprovider,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityprovider/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityprovider/finalizers,verbs=update
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityproviders,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityproviders/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=identityproviders/finalizers,verbs=update
 
 // Reconcile runs the shared lifecycle for a IdentityProvider.
 func (r *IdentityProviderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

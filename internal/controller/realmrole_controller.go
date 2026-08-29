@@ -33,9 +33,9 @@ type RealmRoleReconciler struct {
 	Engine *Engine
 }
 
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=realmrole,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=realmrole/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=realmrole/finalizers,verbs=update
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=realmroles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=realmroles/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=realmroles/finalizers,verbs=update
 
 // Reconcile runs the shared lifecycle for a RealmRole.
 func (r *RealmRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

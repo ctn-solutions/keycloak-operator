@@ -47,7 +47,9 @@ type KeycloakConnectionReconciler struct {
 
 // +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=keycloakconnections,verbs=get;list;watch
 // +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=keycloakconnections/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// Secrets are read for connection credentials and written for exported
+// client secrets (secretOutput), which live in the resources' namespaces.
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch
 
 // Reconcile validates the connection and refreshes its status.
 func (r *KeycloakConnectionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

@@ -1,0 +1,48 @@
+# A realm. The spec mirrors the Keycloak RealmRepresentation field-for-field;
+# see docs/crd-reference.md for the full list of supported fields.
+#
+# Realms are never deleted implicitly: the default deletionPolicy is Orphan.
+# Set deletionPolicy: Delete to opt in to realm deletion.
+---
+apiVersion: keycloak.ctn-solutions.io/v1alpha1
+kind: Realm
+metadata:
+  name: acme
+  namespace: keycloak-system
+spec:
+  keycloakRef:
+    name: production
+  realm: acme
+
+  enabled: true
+  displayName: ACME Platform
+  sslRequired: external
+
+  registrationAllowed: false
+  loginWithEmailAllowed: true
+  resetPasswordAllowed: true
+  verifyEmail: true
+
+  accessTokenLifespan: 900
+  ssoSessionIdleTimeout: 3600
+  ssoSessionMaxLifespan: 43200
+
+  passwordPolicy: "length(12) and digits(1) and upperCase(1)"
+
+  bruteForceProtected: true
+  permanentLockout: false
+  failureFactor: 10
+
+  internationalizationEnabled: true
+  supportedLocales:
+    - en
+    - fr
+  defaultLocale: en
+
+  eventsEnabled: true
+  eventsExpiration: 86400
+  eventsListeners:
+    - jboss-logging
+
+  attributes:
+    platform-team: acme

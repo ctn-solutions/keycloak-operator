@@ -272,6 +272,34 @@ func (c *Client) UpdateIdentityProvider(ctx context.Context, realm, alias string
 	return c.Do(ctx, "PUT", fmt.Sprintf("%s/identity-provider/instances/%s", realmPath(realm), url.PathEscape(alias)), payload, nil)
 }
 
+// ListIdentityProviderMappers returns the mappers of an identity provider.
+func (c *Client) ListIdentityProviderMappers(ctx context.Context, realm, alias string) ([]map[string]any, error) {
+	path := fmt.Sprintf("%s/identity-provider/instances/%s/mappers", realmPath(realm), url.PathEscape(alias))
+	var out []map[string]any
+	if err := c.Do(ctx, "GET", path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreateIdentityProviderMapper adds a mapper to an identity provider.
+func (c *Client) CreateIdentityProviderMapper(ctx context.Context, realm, alias string, payload map[string]any) error {
+	path := fmt.Sprintf("%s/identity-provider/instances/%s/mappers", realmPath(realm), url.PathEscape(alias))
+	return c.Do(ctx, "POST", path, payload, nil)
+}
+
+// UpdateIdentityProviderMapper applies a mapper payload.
+func (c *Client) UpdateIdentityProviderMapper(ctx context.Context, realm, alias, mapperID string, payload map[string]any) error {
+	path := fmt.Sprintf("%s/identity-provider/instances/%s/mappers/%s", realmPath(realm), url.PathEscape(alias), url.PathEscape(mapperID))
+	return c.Do(ctx, "PUT", path, payload, nil)
+}
+
+// DeleteIdentityProviderMapper removes a mapper.
+func (c *Client) DeleteIdentityProviderMapper(ctx context.Context, realm, alias, mapperID string) error {
+	path := fmt.Sprintf("%s/identity-provider/instances/%s/mappers/%s", realmPath(realm), url.PathEscape(alias), url.PathEscape(mapperID))
+	return c.Do(ctx, "DELETE", path, nil, nil)
+}
+
 // DeleteIdentityProvider removes an identity provider.
 func (c *Client) DeleteIdentityProvider(ctx context.Context, realm, alias string) error {
 	return c.Do(ctx, "DELETE", fmt.Sprintf("%s/identity-provider/instances/%s", realmPath(realm), url.PathEscape(alias)), nil, nil)

@@ -33,9 +33,9 @@ type GroupReconciler struct {
 	Engine *Engine
 }
 
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=group,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=group/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=group/finalizers,verbs=update
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=groups,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=groups/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=groups/finalizers,verbs=update
 
 // Reconcile runs the shared lifecycle for a Group.
 func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

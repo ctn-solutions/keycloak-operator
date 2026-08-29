@@ -33,10 +33,11 @@ func (ClientDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.Client).GetSpec()
 }
 
-// OperatorFields lists the spec fields that are operator bookkeeping. The
-// realm name is URL-scoped for sub-resources, so it is operator-only here.
+// OperatorFields lists the spec fields that are operator bookkeeping rather
+// than Keycloak representation fields. The realm name is URL-scoped for
+// sub-resources, so it is operator-only here.
 func (ClientDriver) OperatorFields() []string {
-	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm", "secretRef", "secretOutput"}
 }
 
 // Get resolves the client by clientId.

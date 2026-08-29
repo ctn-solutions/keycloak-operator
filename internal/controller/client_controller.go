@@ -33,9 +33,9 @@ type ClientReconciler struct {
 	Engine *Engine
 }
 
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=client,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=client/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=client/finalizers,verbs=update
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=clients,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=clients/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=keycloak.ctn-solutions.io,resources=clients/finalizers,verbs=update
 
 // Reconcile runs the shared lifecycle for a Client.
 func (r *ClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

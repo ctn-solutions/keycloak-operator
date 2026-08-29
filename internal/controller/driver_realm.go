@@ -36,7 +36,7 @@ func (RealmDriver) Spec(obj ManagedObject) Spec {
 
 // OperatorFields lists the spec fields that are operator bookkeeping.
 func (RealmDriver) OperatorFields() []string {
-	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy"}
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "smtpServerSecretRef"}
 }
 
 // Get fetches the realm representation.

@@ -6,7 +6,8 @@ metadata:
   labels:
     {{- include "keycloak-operator.labels" . | nindent 4 }}
 rules:
-  # Access to connection credentials stored in Secrets.
+  # Connection credentials are read from Secrets; exported client secrets
+  # (secretOutput) are written next to the resources that own them.
   - apiGroups:
       - ""
     resources:
@@ -15,15 +16,41 @@ rules:
       - get
       - list
       - watch
+      - create
+      - update
+      - patch
+  # Leader election.
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Kubernetes events emitted by controllers.
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
   # CRUD on the operator's managed Keycloak resources.
   - apiGroups:
       - keycloak.ctn-solutions.io
     resources:
-      - client
-      - clientscope
-      - group
-      - identityprovider
-      - realmrole
+      - clients
+      - clientscopes
+      - groups
+      - identityproviders
+      - keycloakconnections
+      - realmroles
       - realms
     verbs:
       - create
@@ -33,57 +60,34 @@ rules:
       - patch
       - update
       - watch
-  # Finalizer updates for graceful deletion.
-  - apiGroups:
-      - keycloak.ctn-solutions.io
-    resources:
-      - client/finalizers
-      - clientscope/finalizers
-      - group/finalizers
-      - identityprovider/finalizers
-      - realmrole/finalizers
-      - realms/finalizers
-    verbs:
-      - update
   # Status subresources.
   - apiGroups:
       - keycloak.ctn-solutions.io
     resources:
-      - client/status
-      - clientscope/status
-      - group/status
-      - identityprovider/status
+      - clients/status
+      - clientscopes/status
+      - groups/status
+      - identityproviders/status
       - keycloakconnections/status
-      - realmrole/status
+      - realmroles/status
       - realms/status
     verbs:
       - get
       - patch
       - update
-  # Keycloak connections are read-only for the operator.
+  # Finalizer updates for graceful deletion.
   - apiGroups:
       - keycloak.ctn-solutions.io
     resources:
-      - keycloakconnections
+      - clients/finalizers
+      - clientscopes/finalizers
+      - groups/finalizers
+      - identityproviders/finalizers
+      - keycloakconnections/finalizers
+      - realmroles/finalizers
+      - realms/finalizers
     verbs:
-      - get
-      - list
-      - watch
-  # Kubernetes events emitted by controllers.
-  - apiGroups:
-      - events.k8s.io
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
+      - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
