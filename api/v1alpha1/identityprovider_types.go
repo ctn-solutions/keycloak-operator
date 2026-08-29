@@ -98,6 +98,10 @@ type IdentityProviderSpec struct {
 // IdentityProvider manages an identity provider (broker) on a Keycloak
 // server. The spec mirrors the Keycloak IdentityProviderRepresentation; see
 // the Keycloak server documentation for field semantics.
+//
+// Inline secrets are rejected: the broker client secret belongs in a Secret
+// referenced by spec.configSecretRef.
+// +kubebuilder:validation:XValidation:rule="!(has(self.spec.config) && 'clientSecret' in self.spec.config)",message="inline config.clientSecret is not allowed: reference a Secret through spec.configSecretRef"
 type IdentityProvider struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

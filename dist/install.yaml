@@ -1,0 +1,2630 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+    control-plane: controller-manager
+  name: keycloak-operator-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: clients.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: Client
+    listKind: ClientList
+    plural: clients
+    shortNames:
+    - kcclient
+    singular: client
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clientId
+      name: Client ID
+      type: string
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .spec.keycloakRef.name
+      name: Connection
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Client manages a client on a Keycloak server. The spec mirrors the Keycloak
+          ClientRepresentation; see the Keycloak server documentation for field
+          semantics.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClientSpec defines the desired state of a Client. Fields mirror the
+              Keycloak ClientRepresentation one-to-one. The client secret is never part
+              of the spec: it is either injected from a Secret (secretRef) or exported to
+              one (secretOutput).
+            properties:
+              adminUrl:
+                type: string
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when a client with the same
+                  clientId already exists. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              alwaysDisplayInConsole:
+                type: boolean
+              attributes:
+                additionalProperties:
+                  type: string
+                type: object
+              authenticationFlowBindingOverrides:
+                additionalProperties:
+                  type: string
+                description: |-
+                  AuthenticationFlowBindingOverrides maps flow bindings such as "browser"
+                  or "grant" to flow aliases.
+                type: object
+              authorizationServicesEnabled:
+                type: boolean
+              baseUrl:
+                type: string
+              bearerOnly:
+                type: boolean
+              clientAuthenticatorType:
+                description: |-
+                  ClientAuthenticatorType is for example "client_secret" or
+                  "client_jwt".
+                type: string
+              clientId:
+                description: ClientID is the client identifier used in OIDC/SAML requests.
+                minLength: 1
+                type: string
+              consentRequired:
+                type: boolean
+              consentScreenText:
+                type: string
+              defaultClientScopes:
+                description: |-
+                  DefaultClientScopes lists client scope names granted by default. When
+                  set, the operator enforces the exact list; an empty list removes all
+                  assignments; when unset, existing assignments are left untouched.
+                items:
+                  type: string
+                type: array
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the client is deleted from the server
+                  when this resource is deleted. Defaults to Delete.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              description:
+                type: string
+              directAccessGrantsEnabled:
+                type: boolean
+              displayOnConsentScreen:
+                type: boolean
+              enabled:
+                type: boolean
+              frontchannelLogout:
+                type: boolean
+              fullScopeAllowed:
+                type: boolean
+              implicitFlowEnabled:
+                type: boolean
+              keycloakRef:
+                description: KeycloakRef points to the KeycloakConnection managing
+                  this client.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              name:
+                type: string
+              nodeReRegistrationTimeout:
+                type: integer
+              optionalClientScopes:
+                description: |-
+                  OptionalClientScopes lists client scope names the client may request.
+                  When set, the operator enforces the exact list; an empty list removes
+                  all assignments; when unset, existing assignments are left untouched.
+                items:
+                  type: string
+                type: array
+              protocol:
+                description: Protocol is "openid-connect" or "saml".
+                enum:
+                - openid-connect
+                - saml
+                type: string
+              protocolMappers:
+                items:
+                  description: ProtocolMapper mirrors the Keycloak ProtocolMapperRepresentation.
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    consentRequired:
+                      type: boolean
+                    name:
+                      type: string
+                    protocol:
+                      type: string
+                    protocolMapper:
+                      type: string
+                  type: object
+                type: array
+              publicClient:
+                type: boolean
+              realm:
+                description: Realm is the name of the realm the client lives in.
+                minLength: 1
+                type: string
+              redirectUris:
+                items:
+                  type: string
+                type: array
+              rootUrl:
+                type: string
+              secretOutput:
+                description: |-
+                  SecretOutput exports the effective client secret to a Secret in the
+                  same namespace so applications can mount it. The operator owns the
+                  referenced Secret and garbage-collects it with the Client resource.
+                properties:
+                  key:
+                    description: Key within the Secret. Defaults to "clientSecret"
+                      for client secrets.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              secretRef:
+                description: |-
+                  SecretRef injects the client secret from a Secret in the same
+                  namespace. When set, the operator keeps the server-side secret in sync
+                  with the Secret value.
+                properties:
+                  key:
+                    description: Key within the Secret. Defaults to "clientSecret"
+                      for client secrets.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              serviceAccountsEnabled:
+                type: boolean
+              standardFlowEnabled:
+                type: boolean
+              surrogateAuthRequired:
+                type: boolean
+              webOrigins:
+                items:
+                  type: string
+                type: array
+            required:
+            - clientId
+            - keycloakRef
+            - realm
+            type: object
+          status:
+            description: ClientStatus reports the observed state of a Client.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+              secretName:
+                description: |-
+                  SecretName is the name of the Secret written by secretOutput, when
+                  configured.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: clientscopes.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: ClientScope
+    listKind: ClientScopeList
+    plural: clientscopes
+    shortNames:
+    - kcscope
+    singular: clientscope
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Scope
+      type: string
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .spec.keycloakRef.name
+      name: Connection
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ClientScope manages a client scope on a Keycloak server. The spec mirrors
+          the Keycloak ClientScopeRepresentation; see the Keycloak server
+          documentation for field semantics.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClientScopeSpec defines the desired state of a ClientScope. Fields mirror
+              the Keycloak ClientScopeRepresentation one-to-one.
+            properties:
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when a client scope with the same
+                  name already exists. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              attributes:
+                additionalProperties:
+                  type: string
+                type: object
+              consentScreenText:
+                type: string
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the client scope is deleted from the
+                  server when this resource is deleted. Defaults to Delete.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              description:
+                type: string
+              displayOnConsentScreen:
+                type: boolean
+              keycloakRef:
+                description: |-
+                  KeycloakRef points to the KeycloakConnection managing this client
+                  scope.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              name:
+                description: Name is the client scope name on the Keycloak server.
+                minLength: 1
+                type: string
+              protocol:
+                description: Protocol is "openid-connect" or "saml".
+                enum:
+                - openid-connect
+                - saml
+                type: string
+              protocolMappers:
+                items:
+                  description: ProtocolMapper mirrors the Keycloak ProtocolMapperRepresentation.
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    consentRequired:
+                      type: boolean
+                    name:
+                      type: string
+                    protocol:
+                      type: string
+                    protocolMapper:
+                      type: string
+                  type: object
+                type: array
+              realm:
+                description: Realm is the name of the realm the client scope lives
+                  in.
+                minLength: 1
+                type: string
+            required:
+            - keycloakRef
+            - name
+            - realm
+            type: object
+          status:
+            description: ResourceStatus is the shared status block of all managed
+              resources.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: groups.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: Group
+    listKind: GroupList
+    plural: groups
+    shortNames:
+    - kcgroup
+    singular: group
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Group
+      type: string
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .spec.keycloakRef.name
+      name: Connection
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Group manages a group on a Keycloak server, including its realm and client
+          role mappings.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              GroupSpec defines the desired state of a Group. Core fields mirror the
+              Keycloak GroupRepresentation; role mappings are managed declaratively by
+              name. Groups are flat in v1: nested sub-groups are not managed.
+            properties:
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when a group with the same name
+                  already exists. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              attributes:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: Attributes holds group attributes.
+                type: object
+              clientRoles:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: |-
+                  ClientRoles maps a client ID to the names of that client's roles
+                  granted to the group. When set, the operator enforces the exact list
+                  per client; an empty list removes all mappings of that client; when
+                  unset, existing mappings are left untouched.
+                type: object
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the group is deleted from the server
+                  when this resource is deleted. Defaults to Delete.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              keycloakRef:
+                description: KeycloakRef points to the KeycloakConnection managing
+                  this group.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              name:
+                description: Name is the group name on the Keycloak server.
+                minLength: 1
+                type: string
+              realm:
+                description: Realm is the name of the realm the group lives in.
+                minLength: 1
+                type: string
+              realmRoles:
+                description: |-
+                  RealmRoles lists realm role names granted to the group. When set, the
+                  operator enforces the exact list; an empty list removes all mappings;
+                  when unset, existing mappings are left untouched.
+                items:
+                  type: string
+                type: array
+            required:
+            - keycloakRef
+            - name
+            - realm
+            type: object
+          status:
+            description: ResourceStatus is the shared status block of all managed
+              resources.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: identityproviders.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: IdentityProvider
+    listKind: IdentityProviderList
+    plural: identityproviders
+    shortNames:
+    - kcidp
+    singular: identityprovider
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.alias
+      name: Alias
+      type: string
+    - jsonPath: .spec.providerId
+      name: Provider
+      type: string
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          IdentityProvider manages an identity provider (broker) on a Keycloak
+          server. The spec mirrors the Keycloak IdentityProviderRepresentation; see
+          the Keycloak server documentation for field semantics.
+
+          Inline secrets are rejected: the broker client secret belongs in a Secret
+          referenced by spec.configSecretRef.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              IdentityProviderSpec defines the desired state of an IdentityProvider.
+              Fields mirror the Keycloak IdentityProviderRepresentation one-to-one. The
+              provider-specific "config" map carries the broker configuration; sensitive
+              entries such as "clientSecret" should be injected through ConfigSecretRef
+              instead of being written inline.
+            properties:
+              addReadTokenRoleOnCreate:
+                type: boolean
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when an identity provider with
+                  the same alias already exists. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              alias:
+                description: |-
+                  Alias is the unique identifier of the identity provider within the
+                  realm.
+                minLength: 1
+                type: string
+              config:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Config holds the provider-specific configuration, for example
+                  {"authorizationUrl": "...", "tokenUrl": "...", "clientId": "..."}.
+                type: object
+              configSecretRef:
+                description: |-
+                  ConfigSecretRef injects sensitive config values from a Secret. Keys
+                  maps a config entry (for example "clientSecret") to the Secret key
+                  holding its value.
+                properties:
+                  keys:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Keys maps a target configuration key to the Secret key holding its
+                      value.
+                    minProperties: 1
+                    type: object
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - keys
+                - name
+                type: object
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the identity provider is deleted from
+                  the server when this resource is deleted. Defaults to Delete.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              displayName:
+                type: string
+              enabled:
+                type: boolean
+              firstBrokerLoginFlowAlias:
+                type: string
+              keycloakRef:
+                description: |-
+                  KeycloakRef points to the KeycloakConnection managing this identity
+                  provider.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              linkOnly:
+                type: boolean
+              mappers:
+                items:
+                  description: |-
+                    IdentityProviderMapper mirrors the Keycloak
+                    IdentityProviderMapperRepresentation.
+                  properties:
+                    config:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    identityProviderMapper:
+                      type: string
+                    name:
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              postBrokerLoginFlowAlias:
+                type: string
+              providerId:
+                description: |-
+                  ProviderID is the Keycloak provider type, for example "oidc", "saml",
+                  "google" or "github".
+                minLength: 1
+                type: string
+              realm:
+                description: Realm is the name of the realm the identity provider
+                  lives in.
+                minLength: 1
+                type: string
+              storeToken:
+                type: boolean
+              trustEmail:
+                type: boolean
+            required:
+            - alias
+            - keycloakRef
+            - providerId
+            - realm
+            type: object
+          status:
+            description: ResourceStatus is the shared status block of all managed
+              resources.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+        x-kubernetes-validations:
+        - message: 'inline config.clientSecret is not allowed: reference a Secret
+            through spec.configSecretRef'
+          rule: '!(has(self.spec.config) && ''clientSecret'' in self.spec.config)'
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: keycloakconnections.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: KeycloakConnection
+    listKind: KeycloakConnectionList
+    plural: keycloakconnections
+    singular: keycloakconnection
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.url
+      name: URL
+      type: string
+    - jsonPath: .status.serverVersion
+      name: Version
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          KeycloakConnection describes a Keycloak server and the credentials used to
+          administer it. All managed resources reference a connection through
+          spec.keycloakRef.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KeycloakConnectionSpec defines the desired state of a KeycloakConnection.
+            properties:
+              adminRealm:
+                description: |-
+                  AdminRealm is the realm the administration credentials live in.
+                  Defaults to "master".
+                type: string
+              auth:
+                description: Auth selects the authentication method. Defaults to "password".
+                enum:
+                - password
+                - client
+                type: string
+              credentialsSecretRef:
+                description: |-
+                  CredentialsSecretRef references a Secret in the same namespace holding
+                  the administration credentials. For auth "password" the Secret must
+                  provide the keys "username" and "password"; for auth "client" the keys
+                  "clientId" and "clientSecret".
+                minLength: 1
+                type: string
+              tls:
+                description: TLS configures transport security.
+                properties:
+                  insecureSkipVerify:
+                    description: |-
+                      InsecureSkipVerify disables TLS certificate verification. Use only in
+                      trusted environments such as local development.
+                    type: boolean
+                type: object
+              url:
+                description: |-
+                  URL is the base URL of the Keycloak server, for example
+                  https://keycloak.example.com.
+                minLength: 1
+                pattern: ^https?://
+                type: string
+            required:
+            - credentialsSecretRef
+            - url
+            type: object
+          status:
+            description: KeycloakConnectionStatus reports the observed state of the
+              connection.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest validation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+              serverVersion:
+                description: |-
+                  ServerVersion is the Keycloak version reported by the server, when the
+                  connection is healthy.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: realmroles.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: RealmRole
+    listKind: RealmRoleList
+    plural: realmroles
+    shortNames:
+    - kcrole
+    singular: realmrole
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.name
+      name: Role
+      type: string
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .spec.keycloakRef.name
+      name: Connection
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          RealmRole manages a realm-level role on a Keycloak server. The spec mirrors
+          the Keycloak RoleRepresentation; see the Keycloak server documentation for
+          field semantics.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              RealmRoleSpec defines the desired state of a RealmRole. Fields mirror the
+              Keycloak RoleRepresentation (realm level) one-to-one.
+            properties:
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when a role with the same name
+                  already exists. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              attributes:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                type: object
+              composite:
+                description: |-
+                  Composite marks the role as composite. When true, Composites defines
+                  the exact set of included roles.
+                type: boolean
+              composites:
+                description: RoleComposites describes the roles a composite role is
+                  made of.
+                properties:
+                  clientRoles:
+                    additionalProperties:
+                      items:
+                        type: string
+                      type: array
+                    description: |-
+                      ClientRoles maps a client ID to the names of that client's roles
+                      included in the composite.
+                    type: object
+                  realmRoles:
+                    description: RealmRoles lists realm role names included in the
+                      composite.
+                    items:
+                      type: string
+                    type: array
+                type: object
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the role is deleted from the server
+                  when this resource is deleted. Defaults to Delete.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              description:
+                type: string
+              keycloakRef:
+                description: KeycloakRef points to the KeycloakConnection managing
+                  this role.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              name:
+                description: Name is the role name on the Keycloak server.
+                minLength: 1
+                type: string
+              realm:
+                description: Realm is the name of the realm the role lives in.
+                minLength: 1
+                type: string
+            required:
+            - keycloakRef
+            - name
+            - realm
+            type: object
+          status:
+            description: ResourceStatus is the shared status block of all managed
+              resources.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: realms.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: Realm
+    listKind: RealmList
+    plural: realms
+    shortNames:
+    - kcrealm
+    singular: realm
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .spec.keycloakRef.name
+      name: Connection
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Realm manages a realm on a Keycloak server. The spec mirrors the Keycloak
+          RealmRepresentation; see the Keycloak server documentation for field
+          semantics.
+
+          Inline secrets are rejected: SMTP credentials belong in a Secret referenced
+          by spec.smtpServerSecretRef.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              RealmSpec defines the desired state of a Realm. Fields mirror the Keycloak
+              RealmRepresentation one-to-one; scalar fields are pointers so that unset,
+              explicitly zero and default values are distinguishable.
+            properties:
+              accessCodeLifespan:
+                type: integer
+              accessCodeLifespanLogin:
+                type: integer
+              accessCodeLifespanUserAction:
+                type: integer
+              accessTokenLifespan:
+                type: integer
+              accessTokenLifespanForImplicitFlow:
+                type: integer
+              accountTheme:
+                type: string
+              actionTokenGeneratedByAdminLifespan:
+                type: integer
+              actionTokenGeneratedByUserLifespan:
+                type: integer
+              adminEventsDetailsEnabled:
+                type: boolean
+              adminEventsEnabled:
+                type: boolean
+              adminTheme:
+                type: string
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when the realm already exists on
+                  the server. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              attributes:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Attributes is a free-form map passed through to the realm
+                  representation. It is also where the operator records its managed
+                  marker.
+                type: object
+              browserSecurityHeaders:
+                additionalProperties:
+                  type: string
+                description: |-
+                  BrowserSecurityHeaders configures the security headers injected into
+                  realm pages, for example {"contentSecurityPolicy": "..."}.
+                type: object
+              bruteForceProtected:
+                type: boolean
+              clientOfflineSessionIdleTimeout:
+                type: integer
+              clientOfflineSessionMaxLifespan:
+                type: integer
+              clientSessionIdleTimeout:
+                type: integer
+              clientSessionMaxLifespan:
+                type: integer
+              defaultDefaultClientScopes:
+                description: |-
+                  DefaultDefaultClientScopes lists client scopes granted to every client
+                  by default.
+                items:
+                  type: string
+                type: array
+              defaultLocale:
+                type: string
+              defaultOptionalClientScopes:
+                description: DefaultOptionalClientScopes lists client scopes clients
+                  may request.
+                items:
+                  type: string
+                type: array
+              defaultSignatureAlgorithm:
+                type: string
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the realm is deleted from the server
+                  when this resource is deleted. Defaults to Orphan: realms are never
+                  deleted implicitly.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              displayName:
+                type: string
+              displayNameHtml:
+                type: string
+              duplicateEmailsAllowed:
+                type: boolean
+              emailTheme:
+                type: string
+              enabled:
+                type: boolean
+              enabledEventTypes:
+                items:
+                  type: string
+                type: array
+              eventsEnabled:
+                type: boolean
+              eventsExpiration:
+                format: int64
+                type: integer
+              eventsListeners:
+                items:
+                  type: string
+                type: array
+              failureFactor:
+                type: integer
+              internationalizationEnabled:
+                type: boolean
+              keycloakRef:
+                description: KeycloakRef points to the KeycloakConnection managing
+                  this realm.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              loginTheme:
+                type: string
+              loginWithEmailAllowed:
+                type: boolean
+              maxDeltaTimeSeconds:
+                type: integer
+              maxFailureWaitSeconds:
+                type: integer
+              minimumQuickLoginWaitSeconds:
+                type: integer
+              notBefore:
+                type: integer
+              oauth2DeviceCodeLifespan:
+                type: integer
+              oauth2DevicePollingInterval:
+                type: integer
+              offlineSessionIdleTimeout:
+                type: integer
+              offlineSessionMaxLifespan:
+                type: integer
+              offlineSessionMaxLifespanEnabled:
+                type: boolean
+              organizationsEnabled:
+                type: boolean
+              otpPolicyAlgorithm:
+                type: string
+              otpPolicyCodeReusable:
+                type: boolean
+              otpPolicyDigits:
+                type: integer
+              otpPolicyInitialCounter:
+                type: integer
+              otpPolicyLookAheadWindow:
+                type: integer
+              otpPolicyPeriod:
+                type: integer
+              otpPolicyType:
+                type: string
+              passwordPolicy:
+                type: string
+              permanentLockout:
+                type: boolean
+              quickLoginCheckMilliSeconds:
+                format: int64
+                type: integer
+              realm:
+                description: Realm is the name of the realm on the Keycloak server.
+                minLength: 1
+                type: string
+              refreshTokenMaxReuse:
+                type: integer
+              registrationAllowed:
+                type: boolean
+              registrationEmailAsUsername:
+                type: boolean
+              rememberMe:
+                type: boolean
+              resetPasswordAllowed:
+                type: boolean
+              revokeRefreshToken:
+                type: boolean
+              smtpServer:
+                additionalProperties:
+                  type: string
+                description: |-
+                  SMTPServer holds the SMTP configuration, for example {"host": "...",
+                  "from": "...", "auth": "true", "starttls": "true"}. Sensitive values
+                  such as "password" should be provided through SMTPServerSecretRef
+                  instead of inline.
+                type: object
+              smtpServerSecretRef:
+                description: |-
+                  SMTPServerSecretRef injects sensitive SMTP values from a Secret into
+                  the smtpServer map. Keys maps an smtpServer entry (for example
+                  "password") to the Secret key holding its value.
+                properties:
+                  keys:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Keys maps a target configuration key to the Secret key holding its
+                      value.
+                    minProperties: 1
+                    type: object
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - keys
+                - name
+                type: object
+              sslRequired:
+                description: SSLRequired is one of "all", "external" or "none".
+                enum:
+                - all
+                - external
+                - none
+                type: string
+              ssoSessionIdleTimeout:
+                type: integer
+              ssoSessionIdleTimeoutRememberMe:
+                type: integer
+              ssoSessionMaxLifespan:
+                type: integer
+              ssoSessionMaxLifespanRememberMe:
+                type: integer
+              supportedLocales:
+                items:
+                  type: string
+                type: array
+              userManagedAccessAllowed:
+                type: boolean
+              verifyEmail:
+                type: boolean
+              waitIncrementSeconds:
+                type: integer
+              webAuthnPolicyAcceptableAaguids:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyAttestationConveyancePreference:
+                type: string
+              webAuthnPolicyAuthenticatorAttachment:
+                type: string
+              webAuthnPolicyAvoidSameAuthenticatorRegister:
+                type: boolean
+              webAuthnPolicyCreateTimeout:
+                type: integer
+              webAuthnPolicyPasswordlessAcceptableAaguids:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyPasswordlessAttestationConveyancePreference:
+                type: string
+              webAuthnPolicyPasswordlessAuthenticatorAttachment:
+                type: string
+              webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister:
+                type: boolean
+              webAuthnPolicyPasswordlessCreateTimeout:
+                type: integer
+              webAuthnPolicyPasswordlessRequireResidentKey:
+                type: string
+              webAuthnPolicyPasswordlessRpEntityName:
+                type: string
+              webAuthnPolicyPasswordlessRpId:
+                type: string
+              webAuthnPolicyPasswordlessSignatureAlgorithms:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyPasswordlessUserVerificationRequirement:
+                type: string
+              webAuthnPolicyRequireResidentKey:
+                type: string
+              webAuthnPolicyRpEntityName:
+                type: string
+              webAuthnPolicyRpId:
+                type: string
+              webAuthnPolicySignatureAlgorithms:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyUserVerificationRequirement:
+                type: string
+            required:
+            - keycloakRef
+            - realm
+            type: object
+          status:
+            description: ResourceStatus is the shared status block of all managed
+              resources.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+        x-kubernetes-validations:
+        - message: 'inline smtpServer.password is not allowed: reference a Secret
+            through spec.smtpServerSecretRef'
+          rule: '!(has(self.spec.smtpServer) && ''password'' in self.spec.smtpServer)'
+        - message: 'inline smtpServer.smtpPassword is not allowed: reference a Secret
+            through spec.smtpServerSecretRef'
+          rule: '!(has(self.spec.smtpServer) && ''smtpPassword'' in self.spec.smtpServer)'
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-controller-manager
+  namespace: keycloak-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-leader-election-role
+  namespace: keycloak-operator-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-client-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-client-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-client-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-clientscope-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clientscopes
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clientscopes/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-clientscope-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clientscopes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clientscopes/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-clientscope-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clientscopes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clientscopes/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-group-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - groups
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - groups/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-group-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - groups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - groups/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-group-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - groups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - groups/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-identityprovider-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - identityproviders
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - identityproviders/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-identityprovider-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - identityproviders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - identityproviders/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-identityprovider-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - identityproviders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - identityproviders/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-keycloakconnection-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-keycloakconnection-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-keycloakconnection-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keycloak-operator-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients
+  - clientscopes
+  - groups
+  - identityproviders
+  - realmroles
+  - realms
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/finalizers
+  - clientscopes/finalizers
+  - groups/finalizers
+  - identityproviders/finalizers
+  - realmroles/finalizers
+  - realms/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/status
+  - clientscopes/status
+  - groups/status
+  - identityproviders/status
+  - keycloakconnections/status
+  - realmroles/status
+  - realms/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - keycloakconnections
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keycloak-operator-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keycloak-operator-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-realm-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realms
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realms/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-realm-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realms
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realms/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-realm-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realms
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realms/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-realmrole-admin-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realmroles
+  verbs:
+  - '*'
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realmroles/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-realmrole-editor-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realmroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realmroles/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-realmrole-viewer-role
+rules:
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realmroles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - realmroles/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-leader-election-rolebinding
+  namespace: keycloak-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keycloak-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: keycloak-operator-controller-manager
+  namespace: keycloak-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+  name: keycloak-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keycloak-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: keycloak-operator-controller-manager
+  namespace: keycloak-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keycloak-operator-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keycloak-operator-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: keycloak-operator-controller-manager
+  namespace: keycloak-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+    control-plane: controller-manager
+  name: keycloak-operator-controller-manager-metrics-service
+  namespace: keycloak-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: keycloak-operator
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: keycloak-operator
+    control-plane: controller-manager
+  name: keycloak-operator-controller-manager
+  namespace: keycloak-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak-operator
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: keycloak-operator
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: ghcr.io/ctn-solutions/keycloak-operator:v0.1.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts: []
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: keycloak-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes: []

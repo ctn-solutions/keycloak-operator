@@ -294,6 +294,11 @@ type RealmSpec struct {
 // Realm manages a realm on a Keycloak server. The spec mirrors the Keycloak
 // RealmRepresentation; see the Keycloak server documentation for field
 // semantics.
+//
+// Inline secrets are rejected: SMTP credentials belong in a Secret referenced
+// by spec.smtpServerSecretRef.
+// +kubebuilder:validation:XValidation:rule="!(has(self.spec.smtpServer) && 'password' in self.spec.smtpServer)",message="inline smtpServer.password is not allowed: reference a Secret through spec.smtpServerSecretRef"
+// +kubebuilder:validation:XValidation:rule="!(has(self.spec.smtpServer) && 'smtpPassword' in self.spec.smtpServer)",message="inline smtpServer.smtpPassword is not allowed: reference a Secret through spec.smtpServerSecretRef"
 type Realm struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

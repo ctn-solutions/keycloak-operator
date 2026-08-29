@@ -1,0 +1,101 @@
+# Release pipeline: triggered by pushing a v* tag. Builds and signs a
+# multi-arch image, publishes the Helm chart as an OCI artifact and creates
+# a GitHub release with the install bundle.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build, sign and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # GitHub release
+      packages: write          # GHCR push
+      id-token: write          # keyless cosign / provenance
+      attestations: write      # build provenance attestations
+    steps:
+      - uses: actions/checkout@f548e57e544e # v4
+
+      - uses: actions/setup-go@fba3fb4ead8c # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set up QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@288220e341e5 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe63102785 # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@0a596b2e7a32 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@703896b4f30f # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push image (multi-arch, with SBOM and provenance)
+        id: push
+        uses: docker/build-push-action@2ca78c6bec76 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@874852de93c6 # v3
+
+      - name: Sign the image (keyless)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+
+      - name: Generate build provenance attestation (GitHub)
+        uses: actions/attest-build-provenance@9d57eef8c06c # v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Publish Helm chart (OCI)
+        uses: azure/setup-helm@7a9c28ba04c9 # v4
+      - name: Push chart
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          helm package charts/keycloak-operator --version "${VERSION#v}" --app-version "${VERSION#v}"
+          helm push "keycloak-operator-${VERSION#v}.tgz" "oci://${REGISTRY}/${{ github.repository_owner }}/charts"
+
+      - name: Build the plain-Kubernetes install bundle
+        run: |
+          make build-installer IMG="${REGISTRY}/${IMAGE_NAME}:${{ github.ref_name }}"
+          mv dist/install.yaml "dist/install-${{ github.ref_name }}.yaml"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@e5ee6bc58a36 # v2
+        with:
+          generate_release_notes: true
+          files: dist/install-*.yaml

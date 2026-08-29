@@ -1,0 +1,54 @@
+# Continuous integration: lint and unit tests on every push and pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f548e57e544e # v4
+      - uses: actions/setup-go@fba3fb4ead8c # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@3de4be9e74f1 # v6
+        with:
+          version: latest
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f548e57e544e # v4
+      - uses: actions/setup-go@fba3fb4ead8c # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Run tests
+        run: make test
+
+  verify-generated:
+    name: Generated code is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f548e57e544e # v4
+      - uses: actions/setup-go@fba3fb4ead8c # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Regenerate manifests and deepcopy code
+        run: |
+          make generate manifests
+          git diff --exit-code || {
+            echo "::error::Generated code is out of date. Run 'make generate manifests' and commit the result."
+            exit 1
+          }

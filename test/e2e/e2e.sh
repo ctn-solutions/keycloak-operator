@@ -24,7 +24,7 @@ fail() { printf '\n\033[1;31mFAIL: %s\033[0m\n' "$*" >&2; exit 1; }
 kubectl_context() {
   local current
   current="$(kubectl config current-context)"
-  if [[ "$current" != "docker-desktop" ]]; then
+  if [[ "$current" != "docker-desktop" && "${CI:-}" != "true" ]]; then
     echo "Current context is '$current'. This suite targets docker-desktop."
     read -r -p "Continue anyway? [y/N] " answer
     [[ "$answer" == "y" ]] || exit 1
@@ -89,6 +89,10 @@ kubectl_context
 
 log "Building the operator image"
 docker build -q -t "$IMG" "$REPO_ROOT" >/dev/null || fail "docker build"
+# kind clusters do not share the docker daemon's image store: load it.
+if [[ "$(kubectl config current-context)" == kind-* ]]; then
+  kind load docker-image "$IMG" >/dev/null || fail "kind load docker-image"
+fi
 
 log "Deploying Keycloak 26"
 kubectl apply -f "$REPO_ROOT/test/e2e/manifests/keycloak.yaml"

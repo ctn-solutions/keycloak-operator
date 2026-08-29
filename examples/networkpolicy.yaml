@@ -1,0 +1,47 @@
+# Network policy: restrict the operator's egress to what it actually needs.
+# Apply alongside the chart. Requires a CNI supporting NetworkPolicy
+# (Cilium, Calico, ...). The default-deny egress posture limits the blast
+# radius of the operator's cluster-wide Secret access.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-operator-egress
+  namespace: keycloak-operator-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak-operator
+  policyTypes:
+    - Egress
+  egress:
+    # DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # The Kubernetes API server (leader election, watches, status patches).
+    # Replace the CIDR with your cluster's API server endpoint.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    # Keycloak servers: allow egress to the namespaces where Keycloak runs.
+    # Replace the namespaceSelector with your Keycloak locations.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: keycloak-e2e
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443

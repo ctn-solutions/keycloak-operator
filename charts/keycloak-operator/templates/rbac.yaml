@@ -1,6 +1,8 @@
 {{- if .Values.rbac.create -}}
+{{- $clusterScoped := ne (.Values.rbac.clusterScoped | toString) "false" -}}
+{{- $kind := ternary "ClusterRole" "Role" $clusterScoped -}}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: {{ $kind }}
 metadata:
   name: {{ include "keycloak-operator.fullname" . }}
   labels:
@@ -98,14 +100,14 @@ rules:
       - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: {{ ternary "ClusterRoleBinding" "RoleBinding" $clusterScoped }}
 metadata:
   name: {{ include "keycloak-operator.fullname" . }}
   labels:
     {{- include "keycloak-operator.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: {{ $kind }}
   name: {{ include "keycloak-operator.fullname" . }}
 subjects:
   - kind: ServiceAccount

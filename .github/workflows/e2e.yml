@@ -1,0 +1,29 @@
+# End-to-end tests: a real Keycloak server and the operator on a kind cluster.
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f548e57e544e # v4
+      - uses: actions/setup-go@fba3fb4ead8c # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Create kind cluster
+        uses: helm/kind-action@c72b4750145d # v1
+        with:
+          cluster_name: kind
+      - name: Run e2e suite
+        env:
+          CI: "true"
+        run: bash test/e2e/e2e.sh

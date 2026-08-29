@@ -49,6 +49,9 @@ spec:
             - --metrics-bind-address=:8443
             - --metrics-secure={{ .Values.metrics.secure }}
             - --resync-period={{ .Values.resyncPeriod }}
+            {{- if eq (.Values.rbac.clusterScoped | toString) "false" }}
+            - --watch-namespace={{ .Release.Namespace }}
+            {{- end }}
           ports:
             - name: {{ ternary "https-metrics" "http-metrics" .Values.metrics.secure }}
               containerPort: 8443

@@ -40,7 +40,9 @@ spec:
   and only deleted with an explicit `deletionPolicy: Delete`.
 - **Secrets in both directions** — client secrets, identity-provider credentials and SMTP
   passwords are read from Kubernetes Secrets (never inline in CRDs), and Keycloak-generated
-  client secrets are exported to Secrets for applications to mount.
+  client secrets are exported to Secrets for applications to mount. Inline secrets in
+  `smtpServer` / IdP `config` maps are **rejected by the API server** through CEL
+  validation rules — no webhook required.
 - **Multi-server** — one operator deployment manages any number of Keycloak servers through
   `KeycloakConnection` resources.
 
@@ -62,7 +64,7 @@ in the same namespace.
 
 ## Quickstart
 
-Install the operator with Helm:
+Install with Helm from the OCI registry (recommended):
 
 ```bash
 helm install keycloak-operator oci://ghcr.io/ctn-solutions/charts/keycloak-operator \
@@ -74,6 +76,22 @@ Or from a checkout of this repository:
 ```bash
 helm install keycloak-operator charts/keycloak-operator \
   --namespace keycloak-operator-system --create-namespace
+```
+
+Or without Helm, as a single manifest:
+
+```bash
+kubectl apply -f https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install-v0.1.0.yaml
+```
+
+**Namespace-scoped installs.** By default the operator watches all
+namespaces and holds cluster-wide RBAC. To confine it to its own namespace
+(Role/RoleBinding instead of ClusterRole, restricted cache):
+
+```bash
+helm install keycloak-operator charts/keycloak-operator \
+  --namespace keycloak-operator-system --create-namespace \
+  --set rbac.clusterScoped=false
 ```
 
 > Helm installs the CRDs from the chart's `crds/` directory on install but never upgrades
@@ -155,8 +173,19 @@ at reconciliation time and never records them in status, events or annotations):
 - Exported client secrets (`secretOutput`) are created and owned by the operator; a
   pre-existing Secret with the same name is never overwritten — reconciliation fails with
   a clear condition instead.
-- Container images run as non-root from a distroless base; base images are pinned by
-  digest.
+- Container images run as non-root from a distroless base, are multi-arch
+  (amd64/arm64), built with SBOM and SLSA build provenance attestations, and signed
+  with [Sigstore cosign](https://github.com/sigstore/cosign) (keyless). Verify:
+
+  ```bash
+  cosign verify \
+    --certificate-identity-regexp 'https://github.com/ctn-solutions/keycloak-operator/\.github/workflows/.*' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    ghcr.io/ctn-solutions/keycloak-operator:<tag>
+  ```
+- CI runs lint, unit tests, end-to-end tests on kind, CodeQL, dependency review and the
+  OpenSSF Scorecard on every change. See [SECURITY.md](SECURITY.md) for the reporting
+  policy.
 
 ## Observability
 
@@ -196,8 +225,10 @@ End-to-end tests against a real Keycloak 26 server on a local cluster:
 bash test/e2e/e2e.sh
 ```
 
-See [docs/design.md](docs/design.md) for the architecture and design decisions, and
-[docs/crd-reference.md](docs/crd-reference.md) for the full CRD reference.
+See [docs/design.md](docs/design.md) for the architecture and design decisions,
+[docs/crd-reference.md](docs/crd-reference.md) for the full CRD reference,
+[docs/metrics.md](docs/metrics.md) for the metrics reference and scraping setup, and
+[docs/troubleshooting.md](docs/troubleshooting.md) for the failure-mode runbook.
 
 ## Roadmap
 

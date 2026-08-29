@@ -34,6 +34,9 @@ serviceAccount:
 # Set to false if the cluster administrator manages RBAC out of band.
 rbac:
   create: true
+  # clusterScoped=false installs Role/RoleBinding in the release namespace
+  # and restricts the operator's cache to that namespace.
+  clusterScoped: true
 
 # -- Leader election allows multiple replicas to run safely, electing a
 # single active leader that reconciles resources.
