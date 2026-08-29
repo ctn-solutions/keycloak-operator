@@ -1,5 +1,5 @@
 /*
-Copyright 2026.
+Copyright 2026 CTN Solutions
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,79 +18,103 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// IdentityProviderSpec defines the desired state of IdentityProvider
+// IdentityProviderSpec defines the desired state of an IdentityProvider.
+// Fields mirror the Keycloak IdentityProviderRepresentation one-to-one. The
+// provider-specific "config" map carries the broker configuration; sensitive
+// entries such as "clientSecret" should be injected through ConfigSecretRef
+// instead of being written inline.
 type IdentityProviderSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// KeycloakRef points to the KeycloakConnection managing this identity
+	// provider.
+	// +kubebuilder:validation:Required
+	KeycloakRef KeycloakRef `json:"keycloakRef"`
 
-	// foo is an example field of IdentityProvider. Edit identityprovider_types.go to remove/update
+	// Realm is the name of the realm the identity provider lives in.
+	// +kubebuilder:validation:MinLength=1
+	Realm string `json:"realm"`
+
+	// Alias is the unique identifier of the identity provider within the
+	// realm.
+	// +kubebuilder:validation:MinLength=1
+	Alias string `json:"alias"`
+
+	// ProviderID is the Keycloak provider type, for example "oidc", "saml",
+	// "google" or "github".
+	// +kubebuilder:validation:MinLength=1
+	ProviderID string `json:"providerId"`
+
+	// AdoptionPolicy controls the behaviour when an identity provider with
+	// the same alias already exists. Defaults to CreateOnly.
+	// +kubebuilder:validation:Enum=CreateOnly;Adopt;FailIfExists
 	// +optional
-	Foo *string `json:"foo,omitempty"`
-}
+	AdoptionPolicy *AdoptionPolicy `json:"adoptionPolicy,omitempty"`
 
-// IdentityProviderStatus defines the observed state of IdentityProvider.
-type IdentityProviderStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the IdentityProvider resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
-	// +listType=map
-	// +listMapKey=type
+	// DeletionPolicy controls whether the identity provider is deleted from
+	// the server when this resource is deleted. Defaults to Delete.
+	// +kubebuilder:validation:Enum=Orphan;Delete
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// +optional
+	DisplayName *string `json:"displayName,omitempty"`
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+	// +optional
+	TrustEmail *bool `json:"trustEmail,omitempty"`
+	// +optional
+	StoreToken *bool `json:"storeToken,omitempty"`
+	// +optional
+	AddReadTokenRoleOnCreate *bool `json:"addReadTokenRoleOnCreate,omitempty"`
+	// +optional
+	LinkOnly *bool `json:"linkOnly,omitempty"`
+	// +optional
+	FirstBrokerLoginFlowAlias *string `json:"firstBrokerLoginFlowAlias,omitempty"`
+	// +optional
+	PostBrokerLoginFlowAlias *string `json:"postBrokerLoginFlowAlias,omitempty"`
+	// Config holds the provider-specific configuration, for example
+	// {"authorizationUrl": "...", "tokenUrl": "...", "clientId": "..."}.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+	// ConfigSecretRef injects sensitive config values from a Secret. Keys
+	// maps a config entry (for example "clientSecret") to the Secret key
+	// holding its value.
+	// +optional
+	ConfigSecretRef *SecretKeysSelector `json:"configSecretRef,omitempty"`
+	// +optional
+	Mappers []IdentityProviderMapper `json:"mappers,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced,categories=keycloak,shortName=kcidp
+// +kubebuilder:printcolumn:name="Alias",type=string,JSONPath=`.spec.alias`
+// +kubebuilder:printcolumn:name="Provider",type=string,JSONPath=`.spec.providerId`
+// +kubebuilder:printcolumn:name="Realm",type=string,JSONPath=`.spec.realm`
+// +kubebuilder:printcolumn:name="Synced",type=string,JSONPath=`.status.conditions[?(@.type=="Synced")].status`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// IdentityProvider is the Schema for the identityproviders API
+// IdentityProvider manages an identity provider (broker) on a Keycloak
+// server. The spec mirrors the Keycloak IdentityProviderRepresentation; see
+// the Keycloak server documentation for field semantics.
 type IdentityProvider struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// metadata is a standard object metadata
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitzero"`
-
-	// spec defines the desired state of IdentityProvider
-	// +required
-	Spec IdentityProviderSpec `json:"spec"`
-
-	// status defines the observed state of IdentityProvider
-	// +optional
-	Status IdentityProviderStatus `json:"status,omitzero"`
+	Spec   IdentityProviderSpec `json:"spec,omitempty"`
+	Status ResourceStatus       `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// IdentityProviderList contains a list of IdentityProvider
+// IdentityProviderList contains a list of IdentityProvider.
 type IdentityProviderList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitzero"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []IdentityProvider `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(func(s *runtime.Scheme) error {
-		s.AddKnownTypes(SchemeGroupVersion, &IdentityProvider{}, &IdentityProviderList{})
-		return nil
-	})
+	SchemeBuilder.Register(&IdentityProvider{}, &IdentityProviderList{})
 }

@@ -1,11 +1,50 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app.kubernetes.io/name: keycloak-operator
-    app.kubernetes.io/managed-by: kustomize
   name: manager-role
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients
+  - clientscopes
+  - groups
+  - identityproviders
+  - keycloakconnections
+  - realmroles
+  - realms
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/finalizers
+  - clientscopes/finalizers
+  - groups/finalizers
+  - identityproviders/finalizers
+  - keycloakconnections/finalizers
+  - realmroles/finalizers
+  - realms/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - keycloak.ctn-solutions.io
+  resources:
+  - clients/status
+  - clientscopes/status
+  - groups/status
+  - identityproviders/status
+  - keycloakconnections/status
+  - realmroles/status
+  - realms/status
+  verbs:
+  - get
+  - patch
+  - update

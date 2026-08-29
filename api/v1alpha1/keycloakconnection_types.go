@@ -1,5 +1,5 @@
 /*
-Copyright 2026.
+Copyright 2026 CTN Solutions
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,79 +18,106 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// AuthType selects how the operator authenticates against the Keycloak
+// administration interface.
+//
+// +kubebuilder:validation:Enum=password;client
+type AuthType string
 
-// KeycloakConnectionSpec defines the desired state of KeycloakConnection
-type KeycloakConnectionSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+const (
+	// AuthPassword authenticates with a username/password pair against the
+	// built-in admin-cli client (password grant).
+	AuthPassword AuthType = "password"
 
-	// foo is an example field of KeycloakConnection. Edit keycloakconnection_types.go to remove/update
+	// AuthClient authenticates with a service-account client (client
+	// credentials grant).
+	AuthClient AuthType = "client"
+)
+
+// TLSConfig configures transport security for the connection.
+type TLSConfig struct {
+	// InsecureSkipVerify disables TLS certificate verification. Use only in
+	// trusted environments such as local development.
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 }
 
-// KeycloakConnectionStatus defines the observed state of KeycloakConnection.
-type KeycloakConnectionStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+// KeycloakConnectionSpec defines the desired state of a KeycloakConnection.
+type KeycloakConnectionSpec struct {
+	// URL is the base URL of the Keycloak server, for example
+	// https://keycloak.example.com.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^https?://`
+	URL string `json:"url"`
 
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+	// CredentialsSecretRef references a Secret in the same namespace holding
+	// the administration credentials. For auth "password" the Secret must
+	// provide the keys "username" and "password"; for auth "client" the keys
+	// "clientId" and "clientSecret".
+	// +kubebuilder:validation:MinLength=1
+	CredentialsSecretRef string `json:"credentialsSecretRef"`
 
-	// conditions represent the current state of the KeycloakConnection resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
-	// +listType=map
-	// +listMapKey=type
+	// Auth selects the authentication method. Defaults to "password".
+	// +kubebuilder:validation:Enum=password;client
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Auth *AuthType `json:"auth,omitempty"`
+
+	// AdminRealm is the realm the administration credentials live in.
+	// Defaults to "master".
+	// +optional
+	AdminRealm *string `json:"adminRealm,omitempty"`
+
+	// TLS configures transport security.
+	// +optional
+	TLS *TLSConfig `json:"tls,omitempty"`
+}
+
+// KeycloakConnectionStatus reports the observed state of the connection.
+type KeycloakConnectionStatus struct {
+	// Conditions report the outcome of the latest validation.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// ObservedGeneration is the generation most recently processed.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// ServerVersion is the Keycloak version reported by the server, when the
+	// connection is healthy.
+	// +optional
+	ServerVersion string `json:"serverVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced,categories=keycloak
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.url`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.serverVersion`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// KeycloakConnection is the Schema for the keycloakconnections API
+// KeycloakConnection describes a Keycloak server and the credentials used to
+// administer it. All managed resources reference a connection through
+// spec.keycloakRef.
 type KeycloakConnection struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// metadata is a standard object metadata
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitzero"`
-
-	// spec defines the desired state of KeycloakConnection
-	// +required
-	Spec KeycloakConnectionSpec `json:"spec"`
-
-	// status defines the observed state of KeycloakConnection
-	// +optional
-	Status KeycloakConnectionStatus `json:"status,omitzero"`
+	Spec   KeycloakConnectionSpec   `json:"spec,omitempty"`
+	Status KeycloakConnectionStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// KeycloakConnectionList contains a list of KeycloakConnection
+// KeycloakConnectionList contains a list of KeycloakConnection.
 type KeycloakConnectionList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitzero"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KeycloakConnection `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(func(s *runtime.Scheme) error {
-		s.AddKnownTypes(SchemeGroupVersion, &KeycloakConnection{}, &KeycloakConnectionList{})
-		return nil
-	})
+	SchemeBuilder.Register(&KeycloakConnection{}, &KeycloakConnectionList{})
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2026.
+Copyright 2026 CTN Solutions
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,79 +18,79 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// GroupSpec defines the desired state of Group
+// GroupSpec defines the desired state of a Group. Core fields mirror the
+// Keycloak GroupRepresentation; role mappings are managed declaratively by
+// name. Groups are flat in v1: nested sub-groups are not managed.
 type GroupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// KeycloakRef points to the KeycloakConnection managing this group.
+	// +kubebuilder:validation:Required
+	KeycloakRef KeycloakRef `json:"keycloakRef"`
 
-	// foo is an example field of Group. Edit group_types.go to remove/update
+	// Realm is the name of the realm the group lives in.
+	// +kubebuilder:validation:MinLength=1
+	Realm string `json:"realm"`
+
+	// Name is the group name on the Keycloak server.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// AdoptionPolicy controls the behaviour when a group with the same name
+	// already exists. Defaults to CreateOnly.
+	// +kubebuilder:validation:Enum=CreateOnly;Adopt;FailIfExists
 	// +optional
-	Foo *string `json:"foo,omitempty"`
-}
+	AdoptionPolicy *AdoptionPolicy `json:"adoptionPolicy,omitempty"`
 
-// GroupStatus defines the observed state of Group.
-type GroupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the Group resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
-	// +listType=map
-	// +listMapKey=type
+	// DeletionPolicy controls whether the group is deleted from the server
+	// when this resource is deleted. Defaults to Delete.
+	// +kubebuilder:validation:Enum=Orphan;Delete
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// Attributes holds group attributes.
+	// +optional
+	Attributes map[string][]string `json:"attributes,omitempty"`
+
+	// RealmRoles lists realm role names granted to the group. The operator
+	// enforces the exact set.
+	// +optional
+	RealmRoles []string `json:"realmRoles,omitempty"`
+
+	// ClientRoles maps a client ID to the names of that client's roles
+	// granted to the group. The operator enforces the exact set.
+	// +optional
+	ClientRoles map[string][]string `json:"clientRoles,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced,categories=keycloak,shortName=kcgroup
+// +kubebuilder:printcolumn:name="Group",type=string,JSONPath=`.spec.name`
+// +kubebuilder:printcolumn:name="Realm",type=string,JSONPath=`.spec.realm`
+// +kubebuilder:printcolumn:name="Connection",type=string,JSONPath=`.spec.keycloakRef.name`
+// +kubebuilder:printcolumn:name="Synced",type=string,JSONPath=`.status.conditions[?(@.type=="Synced")].status`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// Group is the Schema for the groups API
+// Group manages a group on a Keycloak server, including its realm and client
+// role mappings.
 type Group struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// metadata is a standard object metadata
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitzero"`
-
-	// spec defines the desired state of Group
-	// +required
-	Spec GroupSpec `json:"spec"`
-
-	// status defines the observed state of Group
-	// +optional
-	Status GroupStatus `json:"status,omitzero"`
+	Spec   GroupSpec      `json:"spec,omitempty"`
+	Status ResourceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// GroupList contains a list of Group
+// GroupList contains a list of Group.
 type GroupList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitzero"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Group `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(func(s *runtime.Scheme) error {
-		s.AddKnownTypes(SchemeGroupVersion, &Group{}, &GroupList{})
-		return nil
-	})
+	SchemeBuilder.Register(&Group{}, &GroupList{})
 }

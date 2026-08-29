@@ -1,5 +1,5 @@
 /*
-Copyright 2026.
+Copyright 2026 CTN Solutions
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,79 +18,187 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// ClientSpec defines the desired state of Client
-type ClientSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
-
-	// foo is an example field of Client. Edit client_types.go to remove/update
+// ProtocolMapper mirrors the Keycloak ProtocolMapperRepresentation.
+type ProtocolMapper struct {
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	Name *string `json:"name,omitempty"`
+	// +optional
+	Protocol *string `json:"protocol,omitempty"`
+	// +optional
+	ProtocolMapper *string `json:"protocolMapper,omitempty"`
+	// +optional
+	ConsentRequired *bool `json:"consentRequired,omitempty"`
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
 }
 
-// ClientStatus defines the observed state of Client.
-type ClientStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the Client resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
-	// +listType=map
-	// +listMapKey=type
+// IdentityProviderMapper mirrors the Keycloak
+// IdentityProviderMapperRepresentation.
+type IdentityProviderMapper struct {
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	IdentityProviderMapper *string `json:"identityProviderMapper,omitempty"`
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+}
+
+// ClientSpec defines the desired state of a Client. Fields mirror the
+// Keycloak ClientRepresentation one-to-one. The client secret is never part
+// of the spec: it is either injected from a Secret (secretRef) or exported to
+// one (secretOutput).
+type ClientSpec struct {
+	// KeycloakRef points to the KeycloakConnection managing this client.
+	// +kubebuilder:validation:Required
+	KeycloakRef KeycloakRef `json:"keycloakRef"`
+
+	// Realm is the name of the realm the client lives in.
+	// +kubebuilder:validation:MinLength=1
+	Realm string `json:"realm"`
+
+	// ClientID is the client identifier used in OIDC/SAML requests.
+	// +kubebuilder:validation:MinLength=1
+	ClientID string `json:"clientId"`
+
+	// AdoptionPolicy controls the behaviour when a client with the same
+	// clientId already exists. Defaults to CreateOnly.
+	// +kubebuilder:validation:Enum=CreateOnly;Adopt;FailIfExists
+	// +optional
+	AdoptionPolicy *AdoptionPolicy `json:"adoptionPolicy,omitempty"`
+
+	// DeletionPolicy controls whether the client is deleted from the server
+	// when this resource is deleted. Defaults to Delete.
+	// +kubebuilder:validation:Enum=Orphan;Delete
+	// +optional
+	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
+
+	// SecretRef injects the client secret from a Secret in the same
+	// namespace. When set, the operator keeps the server-side secret in sync
+	// with the Secret value.
+	// +optional
+	SecretRef *SecretKeySelector `json:"secretRef,omitempty"`
+
+	// SecretOutput exports the effective client secret to a Secret in the
+	// same namespace so applications can mount it. The operator owns the
+	// referenced Secret and garbage-collects it with the Client resource.
+	// +optional
+	SecretOutput *SecretKeySelector `json:"secretOutput,omitempty"`
+
+	// --- ClientRepresentation fields ---
+
+	// +optional
+	Name *string `json:"name,omitempty"`
+	// +optional
+	Description *string `json:"description,omitempty"`
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+	// Protocol is "openid-connect" or "saml".
+	// +kubebuilder:validation:Enum=openid-connect;saml
+	// +optional
+	Protocol *string `json:"protocol,omitempty"`
+	// +optional
+	PublicClient *bool `json:"publicClient,omitempty"`
+	// +optional
+	BearerOnly *bool `json:"bearerOnly,omitempty"`
+	// +optional
+	StandardFlowEnabled *bool `json:"standardFlowEnabled,omitempty"`
+	// +optional
+	ImplicitFlowEnabled *bool `json:"implicitFlowEnabled,omitempty"`
+	// +optional
+	DirectAccessGrantsEnabled *bool `json:"directAccessGrantsEnabled,omitempty"`
+	// +optional
+	ServiceAccountsEnabled *bool `json:"serviceAccountsEnabled,omitempty"`
+	// +optional
+	AuthorizationServicesEnabled *bool `json:"authorizationServicesEnabled,omitempty"`
+	// +optional
+	FrontchannelLogout *bool `json:"frontchannelLogout,omitempty"`
+	// +optional
+	FullScopeAllowed *bool `json:"fullScopeAllowed,omitempty"`
+	// +optional
+	ConsentRequired *bool `json:"consentRequired,omitempty"`
+	// +optional
+	DisplayOnConsentScreen *bool `json:"displayOnConsentScreen,omitempty"`
+	// +optional
+	ConsentScreenText *string `json:"consentScreenText,omitempty"`
+	// +optional
+	AlwaysDisplayInConsole *bool `json:"alwaysDisplayInConsole,omitempty"`
+	// +optional
+	SurrogateAuthRequired *bool `json:"surrogateAuthRequired,omitempty"`
+	// +optional
+	RootURL *string `json:"rootUrl,omitempty"`
+	// +optional
+	BaseURL *string `json:"baseUrl,omitempty"`
+	// +optional
+	AdminURL *string `json:"adminUrl,omitempty"`
+	// +optional
+	RedirectUris []string `json:"redirectUris,omitempty"`
+	// +optional
+	WebOrigins []string `json:"webOrigins,omitempty"`
+	// +optional
+	NodeReRegistrationTimeout *int `json:"nodeReRegistrationTimeout,omitempty"`
+	// ClientAuthenticatorType is for example "client_secret" or
+	// "client_jwt".
+	// +optional
+	ClientAuthenticatorType *string `json:"clientAuthenticatorType,omitempty"`
+	// +optional
+	ProtocolMappers []ProtocolMapper `json:"protocolMappers,omitempty"`
+	// DefaultClientScopes lists client scope names granted by default. The
+	// operator enforces the exact set on the server.
+	// +optional
+	DefaultClientScopes []string `json:"defaultClientScopes,omitempty"`
+	// OptionalClientScopes lists client scope names the client may request.
+	// The operator enforces the exact set on the server.
+	// +optional
+	OptionalClientScopes []string `json:"optionalClientScopes,omitempty"`
+	// +optional
+	Attributes map[string]string `json:"attributes,omitempty"`
+	// AuthenticationFlowBindingOverrides maps flow bindings such as "browser"
+	// or "grant" to flow aliases.
+	// +optional
+	AuthenticationFlowBindingOverrides map[string]string `json:"authenticationFlowBindingOverrides,omitempty"`
+}
+
+// ClientStatus reports the observed state of a Client.
+type ClientStatus struct {
+	ResourceStatus `json:",inline"`
+
+	// SecretName is the name of the Secret written by secretOutput, when
+	// configured.
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Namespaced,categories=keycloak,shortName=kcclient
+// +kubebuilder:printcolumn:name="Client ID",type=string,JSONPath=`.spec.clientId`
+// +kubebuilder:printcolumn:name="Realm",type=string,JSONPath=`.spec.realm`
+// +kubebuilder:printcolumn:name="Connection",type=string,JSONPath=`.spec.keycloakRef.name`
+// +kubebuilder:printcolumn:name="Synced",type=string,JSONPath=`.status.conditions[?(@.type=="Synced")].status`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// Client is the Schema for the clients API
+// Client manages a client on a Keycloak server. The spec mirrors the Keycloak
+// ClientRepresentation; see the Keycloak server documentation for field
+// semantics.
 type Client struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// metadata is a standard object metadata
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitzero"`
-
-	// spec defines the desired state of Client
-	// +required
-	Spec ClientSpec `json:"spec"`
-
-	// status defines the observed state of Client
-	// +optional
-	Status ClientStatus `json:"status,omitzero"`
+	Spec   ClientSpec   `json:"spec,omitempty"`
+	Status ClientStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ClientList contains a list of Client
+// ClientList contains a list of Client.
 type ClientList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitzero"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Client `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(func(s *runtime.Scheme) error {
-		s.AddKnownTypes(SchemeGroupVersion, &Client{}, &ClientList{})
-		return nil
-	})
+	SchemeBuilder.Register(&Client{}, &ClientList{})
 }

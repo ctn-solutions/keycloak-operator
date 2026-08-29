@@ -1,0 +1,424 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: realms.keycloak.ctn-solutions.io
+spec:
+  group: keycloak.ctn-solutions.io
+  names:
+    categories:
+    - keycloak
+    kind: Realm
+    listKind: RealmList
+    plural: realms
+    shortNames:
+    - kcrealm
+    singular: realm
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.realm
+      name: Realm
+      type: string
+    - jsonPath: .spec.keycloakRef.name
+      name: Connection
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Synced")].status
+      name: Synced
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Realm manages a realm on a Keycloak server. The spec mirrors the Keycloak
+          RealmRepresentation; see the Keycloak server documentation for field
+          semantics.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              RealmSpec defines the desired state of a Realm. Fields mirror the Keycloak
+              RealmRepresentation one-to-one; scalar fields are pointers so that unset,
+              explicitly zero and default values are distinguishable.
+            properties:
+              accessCodeLifespan:
+                type: integer
+              accessCodeLifespanLogin:
+                type: integer
+              accessCodeLifespanUserAction:
+                type: integer
+              accessTokenLifespan:
+                type: integer
+              accessTokenLifespanForImplicitFlow:
+                type: integer
+              accountTheme:
+                type: string
+              actionTokenGeneratedByAdminLifespan:
+                type: integer
+              actionTokenGeneratedByUserLifespan:
+                type: integer
+              adminEventsDetailsEnabled:
+                type: boolean
+              adminEventsEnabled:
+                type: boolean
+              adminTheme:
+                type: string
+              adoptionPolicy:
+                description: |-
+                  AdoptionPolicy controls the behaviour when the realm already exists on
+                  the server. Defaults to CreateOnly.
+                enum:
+                - CreateOnly
+                - Adopt
+                - FailIfExists
+                type: string
+              attributes:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Attributes is a free-form map passed through to the realm
+                  representation. It is also where the operator records its managed
+                  marker.
+                type: object
+              browserSecurityHeaders:
+                additionalProperties:
+                  type: string
+                description: |-
+                  BrowserSecurityHeaders configures the security headers injected into
+                  realm pages, for example {"contentSecurityPolicy": "..."}.
+                type: object
+              bruteForceProtected:
+                type: boolean
+              clientOfflineSessionIdleTimeout:
+                type: integer
+              clientOfflineSessionMaxLifespan:
+                type: integer
+              clientSessionIdleTimeout:
+                type: integer
+              clientSessionMaxLifespan:
+                type: integer
+              defaultDefaultClientScopes:
+                description: |-
+                  DefaultDefaultClientScopes lists client scopes granted to every client
+                  by default.
+                items:
+                  type: string
+                type: array
+              defaultLocale:
+                type: string
+              defaultOptionalClientScopes:
+                description: DefaultOptionalClientScopes lists client scopes clients
+                  may request.
+                items:
+                  type: string
+                type: array
+              defaultSignatureAlgorithm:
+                type: string
+              deletionPolicy:
+                description: |-
+                  DeletionPolicy controls whether the realm is deleted from the server
+                  when this resource is deleted. Defaults to Orphan: realms are never
+                  deleted implicitly.
+                enum:
+                - Orphan
+                - Delete
+                type: string
+              displayName:
+                type: string
+              displayNameHtml:
+                type: string
+              duplicateEmailsAllowed:
+                type: boolean
+              emailTheme:
+                type: string
+              enabled:
+                type: boolean
+              enabledEventTypes:
+                items:
+                  type: string
+                type: array
+              eventsEnabled:
+                type: boolean
+              eventsExpiration:
+                format: int64
+                type: integer
+              eventsListeners:
+                items:
+                  type: string
+                type: array
+              failureFactor:
+                type: integer
+              internationalizationEnabled:
+                type: boolean
+              keycloakRef:
+                description: KeycloakRef points to the KeycloakConnection managing
+                  this realm.
+                properties:
+                  name:
+                    description: Name of the KeycloakConnection resource.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              loginTheme:
+                type: string
+              loginWithEmailAllowed:
+                type: boolean
+              maxDeltaTimeSeconds:
+                type: integer
+              maxFailureWaitSeconds:
+                type: integer
+              minimumQuickLoginWaitSeconds:
+                type: integer
+              notBefore:
+                type: integer
+              oauth2DeviceCodeLifespan:
+                type: integer
+              oauth2DevicePollingInterval:
+                type: integer
+              offlineSessionIdleTimeout:
+                type: integer
+              offlineSessionMaxLifespan:
+                type: integer
+              offlineSessionMaxLifespanEnabled:
+                type: boolean
+              organizationsEnabled:
+                type: boolean
+              otpPolicyAlgorithm:
+                type: string
+              otpPolicyCodeReusable:
+                type: boolean
+              otpPolicyDigits:
+                type: integer
+              otpPolicyInitialCounter:
+                type: integer
+              otpPolicyLookAheadWindow:
+                type: integer
+              otpPolicyPeriod:
+                type: integer
+              otpPolicyType:
+                type: string
+              passwordPolicy:
+                type: string
+              permanentLockout:
+                type: boolean
+              quickLoginCheckMilliSeconds:
+                format: int64
+                type: integer
+              realm:
+                description: Realm is the name of the realm on the Keycloak server.
+                minLength: 1
+                type: string
+              refreshTokenMaxReuse:
+                type: integer
+              registrationAllowed:
+                type: boolean
+              registrationEmailAsUsername:
+                type: boolean
+              rememberMe:
+                type: boolean
+              resetPasswordAllowed:
+                type: boolean
+              revokeRefreshToken:
+                type: boolean
+              smtpServer:
+                additionalProperties:
+                  type: string
+                description: |-
+                  SMTPServer holds the SMTP configuration, for example {"host": "...",
+                  "from": "...", "auth": "true", "starttls": "true"}. Sensitive values
+                  such as "password" should be provided through SMTPServerSecretRef
+                  instead of inline.
+                type: object
+              smtpServerSecretRef:
+                description: |-
+                  SMTPServerSecretRef injects sensitive SMTP values from a Secret into
+                  the smtpServer map. Keys maps an smtpServer entry (for example
+                  "password") to the Secret key holding its value.
+                properties:
+                  keys:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Keys maps a target configuration key to the Secret key holding its
+                      value.
+                    minProperties: 1
+                    type: object
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                required:
+                - keys
+                - name
+                type: object
+              sslRequired:
+                description: SSLRequired is one of "all", "external" or "none".
+                enum:
+                - all
+                - external
+                - none
+                type: string
+              ssoSessionIdleTimeout:
+                type: integer
+              ssoSessionIdleTimeoutRememberMe:
+                type: integer
+              ssoSessionMaxLifespan:
+                type: integer
+              ssoSessionMaxLifespanRememberMe:
+                type: integer
+              supportedLocales:
+                items:
+                  type: string
+                type: array
+              userManagedAccessAllowed:
+                type: boolean
+              verifyEmail:
+                type: boolean
+              waitIncrementSeconds:
+                type: integer
+              webAuthnPolicyAcceptableAaguids:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyAttestationConveyancePreference:
+                type: string
+              webAuthnPolicyAuthenticatorAttachment:
+                type: string
+              webAuthnPolicyAvoidSameAuthenticatorRegister:
+                type: boolean
+              webAuthnPolicyCreateTimeout:
+                type: integer
+              webAuthnPolicyPasswordlessAcceptableAaguids:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyPasswordlessAttestationConveyancePreference:
+                type: string
+              webAuthnPolicyPasswordlessAuthenticatorAttachment:
+                type: string
+              webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister:
+                type: boolean
+              webAuthnPolicyPasswordlessCreateTimeout:
+                type: integer
+              webAuthnPolicyPasswordlessRequireResidentKey:
+                type: string
+              webAuthnPolicyPasswordlessRpEntityName:
+                type: string
+              webAuthnPolicyPasswordlessRpId:
+                type: string
+              webAuthnPolicyPasswordlessSignatureAlgorithms:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyPasswordlessUserVerificationRequirement:
+                type: string
+              webAuthnPolicyRequireResidentKey:
+                type: string
+              webAuthnPolicyRpEntityName:
+                type: string
+              webAuthnPolicyRpId:
+                type: string
+              webAuthnPolicySignatureAlgorithms:
+                items:
+                  type: string
+                type: array
+              webAuthnPolicyUserVerificationRequirement:
+                type: string
+            required:
+            - keycloakRef
+            - realm
+            type: object
+          status:
+            description: ResourceStatus is the shared status block of all managed
+              resources.
+            properties:
+              conditions:
+                description: Conditions report the outcome of the latest reconciliation.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation most recently processed.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
