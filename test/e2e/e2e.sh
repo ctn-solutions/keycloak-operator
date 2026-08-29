@@ -35,7 +35,9 @@ wait_for() { # wait_for <description> <timeout-seconds> <command...>
   local description="$1" timeout="$2"; shift 2
   local deadline=$((SECONDS + timeout))
   while (( SECONDS < deadline )); do
-    if "$@" >/dev/null 2>&1; then
+    # Stdout is suppressed but stderr stays visible so retry diagnostics
+    # reach the log.
+    if "$@" >/dev/null; then
       echo "ok: $description"
       return 0
     fi
@@ -190,7 +192,7 @@ kubectl -n keycloak-operator-system port-forward svc/keycloak-operator-metrics 1
 METRICS_PF_PID=$!
 wait_for "metrics endpoint up" 60 bash -c "curl -sf http://localhost:19090/metrics -o /dev/null"
 metrics_exposed() {
-  M="$(curl -sf http://localhost:19090/metrics)" || return 1
+  M="$(curl -sf --max-time 5 http://localhost:19090/metrics)" || { echo "metrics curl failed (exit $?)" >&2; return 1; }
   for metric in \
     keycloak_operator_reconciliations_total \
     keycloak_operator_reconcile_duration_seconds_bucket \
