@@ -144,14 +144,16 @@ type ClientSpec struct {
 	ClientAuthenticatorType *string `json:"clientAuthenticatorType,omitempty"`
 	// +optional
 	ProtocolMappers []ProtocolMapper `json:"protocolMappers,omitempty"`
-	// DefaultClientScopes lists client scope names granted by default. The
-	// operator enforces the exact set on the server.
+	// DefaultClientScopes lists client scope names granted by default. When
+	// set, the operator enforces the exact list; an empty list removes all
+	// assignments; when unset, existing assignments are left untouched.
 	// +optional
-	DefaultClientScopes []string `json:"defaultClientScopes,omitempty"`
+	DefaultClientScopes *[]string `json:"defaultClientScopes,omitempty"`
 	// OptionalClientScopes lists client scope names the client may request.
-	// The operator enforces the exact set on the server.
+	// When set, the operator enforces the exact list; an empty list removes
+	// all assignments; when unset, existing assignments are left untouched.
 	// +optional
-	OptionalClientScopes []string `json:"optionalClientScopes,omitempty"`
+	OptionalClientScopes *[]string `json:"optionalClientScopes,omitempty"`
 	// +optional
 	Attributes map[string]string `json:"attributes,omitempty"`
 	// AuthenticationFlowBindingOverrides maps flow bindings such as "browser"

@@ -25,9 +25,10 @@ import (
 // current spec and the last-applied annotation.
 //
 // Fields present in the last-applied payload but absent from the current spec
-// are set to nil, which the merge step turns into a removal on the server so
-// Keycloak falls back to its default. This gives declarative field removal
-// without clobbering fields the spec never managed.
+// are reset: strings, booleans, arrays and objects are set to their zero
+// value so the server clears them, and Keycloak interprets zero values as
+// its defaults for most fields. Numeric fields are left unchanged on removal
+// because the Admin API cannot distinguish an unset number from zero.
 func EffectivePayload(specMap map[string]any, lastAppliedJSON string) (map[string]any, error) {
 	payload := make(map[string]any, len(specMap))
 	for k, v := range specMap {
@@ -40,12 +41,31 @@ func EffectivePayload(specMap map[string]any, lastAppliedJSON string) (map[strin
 	if err := json.Unmarshal([]byte(lastAppliedJSON), &last); err != nil {
 		return nil, fmt.Errorf("decode last-applied annotation: %w", err)
 	}
-	for k := range last {
+	for k, previous := range last {
 		if _, ok := payload[k]; !ok {
-			payload[k] = nil
+			if zero, resettable := zeroFor(previous); resettable {
+				payload[k] = zero
+			}
 		}
 	}
 	return payload, nil
+}
+
+// zeroFor returns the reset value for a previously applied value. Numbers are
+// not resettable.
+func zeroFor(previous any) (any, bool) {
+	switch previous.(type) {
+	case string:
+		return "", true
+	case bool:
+		return false, true
+	case []any:
+		return []any{}, true
+	case map[string]any:
+		return map[string]any{}, true
+	default:
+		return nil, false
+	}
 }
 
 // MergePayload overlays the payload onto the remote representation. A nil

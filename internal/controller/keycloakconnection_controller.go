@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -70,8 +71,12 @@ func (r *KeycloakConnectionReconciler) Reconcile(ctx context.Context, req ctrl.R
 	info, err := kc.ServerInfo(ctx)
 	if err != nil {
 		log.Error(err, "Failed to reach Keycloak server", "connection", req.NamespacedName)
+		reason := keycloakv1alpha1.ReasonRetrying
+		if errors.Is(err, keycloak.ErrAuth) {
+			reason = keycloakv1alpha1.ReasonConnectionUnavailable
+		}
 		setConnectionCondition(&conn, keycloakv1alpha1.ConditionReady, metav1.ConditionFalse,
-			keycloakv1alpha1.ReasonRetrying, err.Error(), conn.Generation)
+			reason, err.Error(), conn.Generation)
 		_ = r.Status().Patch(ctx, &conn, client.MergeFrom(base))
 		return ctrl.Result{RequeueAfter: connectionRetry}, nil
 	}

@@ -52,15 +52,18 @@ type GroupSpec struct {
 	// +optional
 	Attributes map[string][]string `json:"attributes,omitempty"`
 
-	// RealmRoles lists realm role names granted to the group. The operator
-	// enforces the exact set.
+	// RealmRoles lists realm role names granted to the group. When set, the
+	// operator enforces the exact list; an empty list removes all mappings;
+	// when unset, existing mappings are left untouched.
 	// +optional
-	RealmRoles []string `json:"realmRoles,omitempty"`
+	RealmRoles *[]string `json:"realmRoles,omitempty"`
 
 	// ClientRoles maps a client ID to the names of that client's roles
-	// granted to the group. The operator enforces the exact set.
+	// granted to the group. When set, the operator enforces the exact list
+	// per client; an empty list removes all mappings of that client; when
+	// unset, existing mappings are left untouched.
 	// +optional
-	ClientRoles map[string][]string `json:"clientRoles,omitempty"`
+	ClientRoles *map[string][]string `json:"clientRoles,omitempty"`
 }
 
 // +kubebuilder:object:root=true

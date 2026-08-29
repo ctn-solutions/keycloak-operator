@@ -34,6 +34,11 @@ func (RealmDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.Realm).GetSpec()
 }
 
+// OperatorFields lists the spec fields that are operator bookkeeping.
+func (RealmDriver) OperatorFields() []string {
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy"}
+}
+
 // Get fetches the realm representation.
 func (RealmDriver) Get(ctx context.Context, kc *keycloak.Client, obj ManagedObject) (map[string]any, error) {
 	return kc.GetRealm(ctx, specOf[*keycloakv1alpha1.RealmSpec](obj).TargetRealm())

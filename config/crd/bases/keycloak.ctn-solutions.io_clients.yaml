@@ -111,8 +111,9 @@ spec:
                 type: string
               defaultClientScopes:
                 description: |-
-                  DefaultClientScopes lists client scope names granted by default. The
-                  operator enforces the exact set on the server.
+                  DefaultClientScopes lists client scope names granted by default. When
+                  set, the operator enforces the exact list; an empty list removes all
+                  assignments; when unset, existing assignments are left untouched.
                 items:
                   type: string
                 type: array
@@ -156,7 +157,8 @@ spec:
               optionalClientScopes:
                 description: |-
                   OptionalClientScopes lists client scope names the client may request.
-                  The operator enforces the exact set on the server.
+                  When set, the operator enforces the exact list; an empty list removes
+                  all assignments; when unset, existing assignments are left untouched.
                 items:
                   type: string
                 type: array

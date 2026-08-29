@@ -47,7 +47,7 @@ func TestTokenIsCached(t *testing.T) {
 	c := New(Config{URL: srv.URL, Username: "a", Password: "b"})
 	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		if _, err := c.token(ctx); err != nil {
+		if _, err := c.Token(ctx); err != nil {
 			t.Fatalf("token: %v", err)
 		}
 	}
@@ -108,7 +108,7 @@ func TestDoRetriesOnceAfterAuthFailure(t *testing.T) {
 
 	c := New(Config{URL: srv.URL, Username: "a", Password: "b"})
 	ctx := context.Background()
-	if _, err := c.token(ctx); err != nil {
+	if _, err := c.Token(ctx); err != nil {
 		t.Fatalf("prime token: %v", err)
 	}
 	if err := c.Do(ctx, "GET", "/admin/realms/r/thing", nil, nil); err != nil {
@@ -136,7 +136,7 @@ func TestClientCredentialsGrant(t *testing.T) {
 	defer srv.Close()
 
 	c := New(Config{URL: srv.URL, Auth: AuthClient, ClientID: "svc", ClientSecret: "s3cret"})
-	if _, err := c.token(context.Background()); err != nil {
+	if _, err := c.Token(context.Background()); err != nil {
 		t.Fatalf("token: %v", err)
 	}
 	if grantType != "client_credentials" || clientID != "svc" || clientSecret != "s3cret" {

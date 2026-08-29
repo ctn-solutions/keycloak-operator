@@ -97,9 +97,9 @@ func New(cfg Config) *Client {
 // Config returns a copy of the client configuration.
 func (c *Client) Config() Config { return c.cfg }
 
-// token returns a valid access token, refreshing it when it is about to
+// Token returns a valid access token, refreshing it when it is about to
 // expire.
-func (c *Client) token(ctx context.Context) (string, error) {
+func (c *Client) Token(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.accessToken != "" && time.Until(c.tokenExpri) > 30*time.Second {
@@ -136,6 +136,9 @@ func (c *Client) token(ctx context.Context) (string, error) {
 	defer resp.Body.Close() //nolint:errcheck // read-only body
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return "", fmt.Errorf("%w: %s", ErrAuth, truncate(body))
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", &APIError{StatusCode: resp.StatusCode, Method: http.MethodPost, Path: "/token", Body: string(body)}
 	}
@@ -183,7 +186,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 }
 
 func (c *Client) doOnce(ctx context.Context, method, path string, body, out any) error {
-	token, err := c.token(ctx)
+	token, err := c.Token(ctx)
 	if err != nil {
 		return err
 	}

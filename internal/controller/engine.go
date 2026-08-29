@@ -79,6 +79,10 @@ type Driver interface {
 	Protected(obj ManagedObject) (bool, string)
 	// Spec exposes the concrete spec through the shared accessor interface.
 	Spec(obj ManagedObject) Spec
+	// OperatorFields lists the top-level spec fields that are operator
+	// bookkeeping (references and policies) rather than Keycloak
+	// representation fields. The engine strips them from the payload.
+	OperatorFields() []string
 }
 
 // Engine implements the shared reconciliation lifecycle for all managed
@@ -135,8 +139,14 @@ func (e *Engine) Reconcile(ctx context.Context, obj ManagedObject, drv Driver) (
 		return ctrl.Result{}, nil
 	}
 
-	// Effective payload from spec + last-applied.
+	// Effective payload from spec + last-applied. Operator-only fields are
+	// stripped so the payload contains representation fields only.
 	specMap, err := toJSONMap(drv.Spec(obj))
+	if err == nil {
+		for _, field := range drv.OperatorFields() {
+			delete(specMap, field)
+		}
+	}
 	if err != nil {
 		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonFailed, fmt.Sprintf("encode spec: %v", err))
 		return ctrl.Result{}, nil
@@ -187,7 +197,22 @@ func (e *Engine) handleCreate(ctx context.Context, obj ManagedObject, drv Driver
 	}
 
 	e.record(obj, corev1.EventTypeNormal, "Created", fmt.Sprintf("Created %s on Keycloak server", obj.GetObjectKind().GroupVersionKind().Kind))
-	return e.finalize(ctx, obj, base, specMap, true)
+
+	// Re-fetch the created resource so kind-specific post-processing can
+	// resolve server-side identifiers.
+	remote, err := drv.Get(ctx, kc, obj)
+	if err != nil {
+		e.setCondition(ctx, status, obj, base, keycloakv1alpha1.ConditionReady, metav1.ConditionFalse,
+			keycloakv1alpha1.ReasonRetrying, err.Error())
+		return ctrl.Result{}, err
+	}
+	postChanged, err := drv.PostApply(ctx, kc, obj, e.client, remote)
+	if err != nil {
+		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonFailed, err.Error())
+		return ctrl.Result{RequeueAfter: secretRetry}, nil
+	}
+
+	return e.finalize(ctx, obj, base, specMap, true || postChanged)
 }
 
 func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driver, kc *keycloak.Client,
@@ -247,8 +272,7 @@ func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driv
 func (e *Engine) finalize(ctx context.Context, obj ManagedObject, base client.Object, specMap map[string]any, synced bool) (ctrl.Result, error) {
 	status := obj.GetResourceStatus()
 
-	encoded, err := json.Marshal(specMap)
-	if err == nil {
+	if encoded, err := json.Marshal(specMap); err == nil {
 		annotations := obj.GetAnnotations()
 		if annotations == nil {
 			annotations = map[string]string{}
@@ -256,6 +280,9 @@ func (e *Engine) finalize(ctx context.Context, obj ManagedObject, base client.Ob
 		if annotations[keycloakv1alpha1.LastAppliedAnnotation] != string(encoded) {
 			annotations[keycloakv1alpha1.LastAppliedAnnotation] = string(encoded)
 			obj.SetAnnotations(annotations)
+			if err := e.client.Patch(ctx, obj, client.MergeFrom(base)); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 

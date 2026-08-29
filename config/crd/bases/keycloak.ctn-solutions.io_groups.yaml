@@ -87,7 +87,9 @@ spec:
                   type: array
                 description: |-
                   ClientRoles maps a client ID to the names of that client's roles
-                  granted to the group. The operator enforces the exact set.
+                  granted to the group. When set, the operator enforces the exact list
+                  per client; an empty list removes all mappings of that client; when
+                  unset, existing mappings are left untouched.
                 type: object
               deletionPolicy:
                 description: |-
@@ -118,8 +120,9 @@ spec:
                 type: string
               realmRoles:
                 description: |-
-                  RealmRoles lists realm role names granted to the group. The operator
-                  enforces the exact set.
+                  RealmRoles lists realm role names granted to the group. When set, the
+                  operator enforces the exact list; an empty list removes all mappings;
+                  when unset, existing mappings are left untouched.
                 items:
                   type: string
                 type: array

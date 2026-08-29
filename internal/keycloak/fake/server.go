@@ -38,32 +38,34 @@ type Server struct {
 	issued  int
 	revoked bool
 
-	realms   map[string]map[string]any
-	clients  map[string]map[string]map[string]any // realm -> id -> representation
-	scopes   map[string]map[string]map[string]any
-	roles    map[string]map[string]map[string]any
-	idps     map[string]map[string]map[string]any
-	groups   map[string]map[string]map[string]any
-	groupRR  map[string]map[string][]map[string]any              // realm -> groupID -> realm roles
-	groupCR  map[string]map[string]map[string][]map[string]any   // realm -> groupID -> clientUUID -> roles
-	defScope map[string]map[string][]string                      // realm -> clientID -> scope ids
-	optScope map[string]map[string][]string
+	realms      map[string]map[string]any
+	clients     map[string]map[string]map[string]any // realm -> id -> representation
+	scopes      map[string]map[string]map[string]any
+	roles       map[string]map[string]map[string]any
+	clientRoles map[string]map[string]map[string]any // realm -> clientUUID -> roleName -> rep
+	idps        map[string]map[string]map[string]any
+	groups      map[string]map[string]map[string]any
+	groupRR     map[string]map[string][]map[string]any            // realm -> groupID -> realm roles
+	groupCR     map[string]map[string]map[string][]map[string]any // realm -> groupID -> clientUUID -> roles
+	defScope    map[string]map[string][]string                    // realm -> clientID -> scope ids
+	optScope    map[string]map[string][]string
 }
 
 // New starts a fake server accepting the given credentials.
 func New(username, password string) *Server {
 	s := &Server{
-		creds:    map[string]string{username: password},
-		realms:   map[string]map[string]any{},
-		clients:  map[string]map[string]map[string]any{},
-		scopes:   map[string]map[string]map[string]any{},
-		roles:    map[string]map[string]map[string]any{},
-		idps:     map[string]map[string]map[string]any{},
-		groups:   map[string]map[string]map[string]any{},
-		groupRR:  map[string]map[string][]map[string]any{},
-		groupCR:  map[string]map[string]map[string][]map[string]any{},
-		defScope: map[string]map[string][]string{},
-		optScope: map[string]map[string][]string{},
+		creds:       map[string]string{username: password},
+		realms:      map[string]map[string]any{},
+		clients:     map[string]map[string]map[string]any{},
+		scopes:      map[string]map[string]map[string]any{},
+		roles:       map[string]map[string]map[string]any{},
+		clientRoles: map[string]map[string]map[string]any{},
+		idps:        map[string]map[string]map[string]any{},
+		groups:      map[string]map[string]map[string]any{},
+		groupRR:     map[string]map[string][]map[string]any{},
+		groupCR:     map[string]map[string]map[string][]map[string]any{},
+		defScope:    map[string]map[string][]string{},
+		optScope:    map[string]map[string][]string{},
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/realms/", s.handleToken)
@@ -94,12 +96,23 @@ func (s *Server) Reset() {
 	s.clients = map[string]map[string]map[string]any{}
 	s.scopes = map[string]map[string]map[string]any{}
 	s.roles = map[string]map[string]map[string]any{}
+	s.clientRoles = map[string]map[string]map[string]any{}
 	s.idps = map[string]map[string]map[string]any{}
 	s.groups = map[string]map[string]map[string]any{}
 	s.groupRR = map[string]map[string][]map[string]any{}
 	s.groupCR = map[string]map[string]map[string][]map[string]any{}
 	s.defScope = map[string]map[string][]string{}
 	s.optScope = map[string]map[string][]string{}
+}
+
+// SetRealmField mutates a realm field directly, simulating out-of-band
+// drift from the Keycloak console.
+func (s *Server) SetRealmField(realm, key string, value any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rep, ok := s.realms[realm]; ok {
+		rep[key] = value
+	}
 }
 
 // Realm returns a copy of a realm representation.
@@ -146,9 +159,26 @@ func (s *Server) Role(realm, name string) (map[string]any, bool) {
 func (s *Server) RoleComposites(realm, name string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	role, ok := s.roles[realm][name]
+	if !ok {
+		return nil
+	}
 	var out []string
-	for _, rep := range s.roles[realm][name]["composites"].([]map[string]any) {
-		out = append(out, rep["name"].(string))
+	switch composites := role["composites"].(type) {
+	case []map[string]any:
+		for _, rep := range composites {
+			if n, ok := rep["name"].(string); ok {
+				out = append(out, n)
+			}
+		}
+	case []any:
+		for _, entry := range composites {
+			if rep, ok := entry.(map[string]any); ok {
+				if n, ok := rep["name"].(string); ok {
+					out = append(out, n)
+				}
+			}
+		}
 	}
 	return out
 }
@@ -180,7 +210,9 @@ func (s *Server) GroupRealmRoles(realm, name string) []string {
 	id := s.groupIDLocked(realm, name)
 	var out []string
 	for _, rep := range s.groupRR[realm][id] {
-		out = append(out, rep["name"].(string))
+		if n, ok := rep["name"].(string); ok {
+			out = append(out, n)
+		}
 	}
 	return out
 }
@@ -193,7 +225,9 @@ func (s *Server) GroupClientRoles(realm, name, clientUUID string) []string {
 	id := s.groupIDLocked(realm, name)
 	var out []string
 	for _, rep := range s.groupCR[realm][id][clientUUID] {
-		out = append(out, rep["name"].(string))
+		if n, ok := rep["name"].(string); ok {
+			out = append(out, n)
+		}
 	}
 	return out
 }
@@ -353,7 +387,11 @@ func (s *Server) handleRealmScoped(w http.ResponseWriter, r *http.Request, rest 
 	case "roles":
 		s.handleRoles(w, r, realm, sub[1:])
 	case "identity-provider":
-		s.handleIdentityProviders(w, r, realm, sub[1:])
+		if len(sub) >= 2 && sub[1] == "instances" {
+			s.handleIdentityProviders(w, r, realm, sub[2:])
+		} else {
+			http.NotFound(w, r)
+		}
 	case "groups":
 		s.handleGroups(w, r, realm, sub[1:])
 	default:
@@ -442,6 +480,43 @@ func (s *Server) handleClients(w http.ResponseWriter, r *http.Request, realm str
 	}
 
 	id := sub[0]
+	if len(sub) == 3 && sub[1] == "roles" {
+		// A single client role.
+		roleName, err := url.PathUnescape(sub[2])
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		if rep, ok := s.clientRoles[realm][id][roleName]; ok {
+			s.writeJSON(w, rep)
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
+	if len(sub) == 2 && sub[1] == "roles" {
+		// Client-level role collection (used by tests to seed client roles).
+		switch r.Method {
+		case http.MethodPost:
+			var payload map[string]any
+			if !s.decode(w, r, &payload) {
+				return
+			}
+			name, _ := payload["name"].(string)
+			if s.clientRoles[realm] == nil {
+				s.clientRoles[realm] = map[string]map[string]any{}
+			}
+			if s.clientRoles[realm][id] == nil {
+				s.clientRoles[realm][id] = map[string]any{}
+			}
+			payload["id"] = "clientrole-" + id + "-" + name
+			s.clientRoles[realm][id][name] = payload
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+		return
+	}
 	if len(sub) == 2 && sub[1] == "client-secret" {
 		rep, ok := s.clients[realm][id]
 		if !ok {
@@ -461,7 +536,7 @@ func (s *Server) handleClients(w http.ResponseWriter, r *http.Request, realm str
 		}
 		return
 	}
-	if len(sub) == 2 && (sub[1] == "default-client-scopes" || sub[1] == "optional-client-scopes") {
+	if len(sub) >= 2 && (sub[1] == "default-client-scopes" || sub[1] == "optional-client-scopes") {
 		kind := sub[1]
 		store := s.defScope
 		if kind == "optional-client-scopes" {
@@ -481,6 +556,9 @@ func (s *Server) handleClients(w http.ResponseWriter, r *http.Request, realm str
 			if _, ok := s.scopes[realm][scopeID]; !ok {
 				http.NotFound(w, r)
 				return
+			}
+			if store[realm] == nil {
+				store[realm] = map[string][]string{}
 			}
 			store[realm][id] = appendUnique(store[realm][id], scopeID)
 			w.WriteHeader(http.StatusNoContent)
@@ -758,7 +836,7 @@ func (s *Server) handleGroups(w http.ResponseWriter, r *http.Request, realm stri
 	}
 
 	id := sub[0]
-	if len(sub) == 4 && sub[1] == "role-mappings" && (sub[2] == "realm" || sub[2] == "clients") {
+	if len(sub) >= 3 && sub[1] == "role-mappings" && (sub[2] == "realm" || sub[2] == "clients") {
 		group, ok := s.groups[realm][id]
 		if !ok {
 			http.NotFound(w, r)

@@ -162,3 +162,9 @@ const (
 	// without the allow-protected annotation.
 	ReasonProtectedRealm = "ProtectedRealm"
 )
+
+// Ptr returns a pointer to the policy value, for convenient spec literals.
+func (p AdoptionPolicy) Ptr() *AdoptionPolicy { return &p }
+
+// Ptr returns a pointer to the policy value, for convenient spec literals.
+func (p DeletionPolicy) Ptr() *DeletionPolicy { return &p }

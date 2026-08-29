@@ -33,6 +33,12 @@ func (ClientDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.Client).GetSpec()
 }
 
+// OperatorFields lists the spec fields that are operator bookkeeping. The
+// realm name is URL-scoped for sub-resources, so it is operator-only here.
+func (ClientDriver) OperatorFields() []string {
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+}
+
 // Get resolves the client by clientId.
 func (ClientDriver) Get(ctx context.Context, kc *keycloak.Client, obj ManagedObject) (map[string]any, error) {
 	spec := specOf[*keycloakv1alpha1.ClientSpec](obj)
@@ -114,14 +120,14 @@ func (ClientDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Mana
 	}
 
 	if spec.DefaultClientScopes != nil {
-		wrote, err := enforceScopeAssignments(ctx, kc, spec.TargetRealm(), id, spec.DefaultClientScopes, false)
+		wrote, err := enforceScopeAssignments(ctx, kc, spec.TargetRealm(), id, *spec.DefaultClientScopes, false)
 		if err != nil {
 			return changed, err
 		}
 		changed = changed || wrote
 	}
 	if spec.OptionalClientScopes != nil {
-		wrote, err := enforceScopeAssignments(ctx, kc, spec.TargetRealm(), id, spec.OptionalClientScopes, true)
+		wrote, err := enforceScopeAssignments(ctx, kc, spec.TargetRealm(), id, *spec.OptionalClientScopes, true)
 		if err != nil {
 			return changed, err
 		}
@@ -141,6 +147,11 @@ func (ClientScopeDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.ClientScope).GetSpec()
 }
 
+// OperatorFields lists the spec fields that are operator bookkeeping.
+func (ClientScopeDriver) OperatorFields() []string {
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+}
+
 // Get resolves the client scope by name.
 func (ClientScopeDriver) Get(ctx context.Context, kc *keycloak.Client, obj ManagedObject) (map[string]any, error) {
 	spec := specOf[*keycloakv1alpha1.ClientScopeSpec](obj)
@@ -155,12 +166,12 @@ func (ClientScopeDriver) ID(remote map[string]any) string {
 
 // Create creates the client scope.
 func (ClientScopeDriver) Create(ctx context.Context, kc *keycloak.Client, obj ManagedObject, payload map[string]any) error {
-	return kc.CreateClientScope(ctx, specOf[*keycloakv1alpha1.ClientSpec](obj).TargetRealm(), payload)
+	return kc.CreateClientScope(ctx, specOf[*keycloakv1alpha1.ClientScopeSpec](obj).TargetRealm(), payload)
 }
 
 // Update applies the payload to the client scope.
 func (ClientScopeDriver) Update(ctx context.Context, kc *keycloak.Client, obj ManagedObject, id string, payload map[string]any) error {
-	return kc.UpdateClientScope(ctx, specOf[*keycloakv1alpha1.ClientSpec](obj).TargetRealm(), id, payload)
+	return kc.UpdateClientScope(ctx, specOf[*keycloakv1alpha1.ClientScopeSpec](obj).TargetRealm(), id, payload)
 }
 
 // Delete removes the client scope.

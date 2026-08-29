@@ -34,6 +34,11 @@ func (RealmRoleDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.RealmRole).GetSpec()
 }
 
+// OperatorFields lists the spec fields that are operator bookkeeping.
+func (RealmRoleDriver) OperatorFields() []string {
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+}
+
 // Get resolves the role by name.
 func (RealmRoleDriver) Get(ctx context.Context, kc *keycloak.Client, obj ManagedObject) (map[string]any, error) {
 	spec := specOf[*keycloakv1alpha1.RealmRoleSpec](obj)
@@ -48,7 +53,7 @@ func (RealmRoleDriver) ID(remote map[string]any) string {
 
 // Create creates the role.
 func (RealmRoleDriver) Create(ctx context.Context, kc *keycloak.Client, obj ManagedObject, payload map[string]any) error {
-	return kc.CreateRole(ctx, specOf[*keycloakv1alpha1.ClientSpec](obj).TargetRealm(), payload)
+	return kc.CreateRole(ctx, specOf[*keycloakv1alpha1.RealmRoleSpec](obj).TargetRealm(), payload)
 }
 
 // Update applies the payload to the role.
@@ -155,6 +160,11 @@ func (IdentityProviderDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.IdentityProvider).GetSpec()
 }
 
+// OperatorFields lists the spec fields that are operator bookkeeping.
+func (IdentityProviderDriver) OperatorFields() []string {
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+}
+
 // Get resolves the identity provider by alias.
 func (IdentityProviderDriver) Get(ctx context.Context, kc *keycloak.Client, obj ManagedObject) (map[string]any, error) {
 	spec := specOf[*keycloakv1alpha1.IdentityProviderSpec](obj)
@@ -169,7 +179,7 @@ func (IdentityProviderDriver) ID(remote map[string]any) string {
 
 // Create creates the identity provider.
 func (IdentityProviderDriver) Create(ctx context.Context, kc *keycloak.Client, obj ManagedObject, payload map[string]any) error {
-	return kc.CreateIdentityProvider(ctx, specOf[*keycloakv1alpha1.ClientSpec](obj).TargetRealm(), payload)
+	return kc.CreateIdentityProvider(ctx, specOf[*keycloakv1alpha1.IdentityProviderSpec](obj).TargetRealm(), payload)
 }
 
 // Update applies the payload to the identity provider.
@@ -230,6 +240,11 @@ func (GroupDriver) Spec(obj ManagedObject) Spec {
 	return obj.(*keycloakv1alpha1.Group).GetSpec()
 }
 
+// OperatorFields lists the spec fields that are operator bookkeeping.
+func (GroupDriver) OperatorFields() []string {
+	return []string{"keycloakRef", "adoptionPolicy", "deletionPolicy", "realm"}
+}
+
 // Get resolves the group by name.
 func (GroupDriver) Get(ctx context.Context, kc *keycloak.Client, obj ManagedObject) (map[string]any, error) {
 	spec := specOf[*keycloakv1alpha1.GroupSpec](obj)
@@ -244,12 +259,12 @@ func (GroupDriver) ID(remote map[string]any) string {
 
 // Create creates the group.
 func (GroupDriver) Create(ctx context.Context, kc *keycloak.Client, obj ManagedObject, payload map[string]any) error {
-	return kc.CreateGroup(ctx, specOf[*keycloakv1alpha1.ClientSpec](obj).TargetRealm(), payload)
+	return kc.CreateGroup(ctx, specOf[*keycloakv1alpha1.GroupSpec](obj).TargetRealm(), payload)
 }
 
 // Update applies the payload to the group.
 func (GroupDriver) Update(ctx context.Context, kc *keycloak.Client, obj ManagedObject, id string, payload map[string]any) error {
-	return kc.UpdateGroup(ctx, specOf[*keycloakv1alpha1.ClientSpec](obj).TargetRealm(), id, payload)
+	return kc.UpdateGroup(ctx, specOf[*keycloakv1alpha1.GroupSpec](obj).TargetRealm(), id, payload)
 }
 
 // Delete removes the group.
@@ -289,7 +304,7 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 
 	changed := false
 
-	// Realm role mappings.
+	// Realm role mappings: nil means unmanaged, an empty list clears.
 	var currentRealm []map[string]any
 	if realmMappings, ok := mappings["realmMappings"].([]any); ok {
 		for _, rep := range realmMappings {
@@ -298,15 +313,17 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 			}
 		}
 	}
-	desiredRealm, err := resolveRealmRoles(ctx, kc, spec.TargetRealm(), spec.RealmRoles)
-	if err != nil {
-		return changed, err
+	if spec.RealmRoles != nil {
+		desiredRealm, err := resolveRealmRoles(ctx, kc, spec.TargetRealm(), *spec.RealmRoles)
+		if err != nil {
+			return changed, err
+		}
+		added, removed, err := applyRoleDiff(ctx, kc, spec.TargetRealm(), id, "", desiredRealm, currentRealm, kc.AddGroupRealmRoles, kc.RemoveGroupRealmRoles)
+		if err != nil {
+			return changed, err
+		}
+		changed = changed || added || removed
 	}
-	added, removed, err := applyRoleDiff(ctx, kc, spec.TargetRealm(), id, "", desiredRealm, currentRealm, kc.AddGroupRealmRoles, kc.RemoveGroupRealmRoles)
-	if err != nil {
-		return changed, err
-	}
-	changed = changed || added || removed
 
 	// Client role mappings, including removals for clients no longer listed.
 	type clientMapping struct {
@@ -333,12 +350,16 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 		}
 	}
 
+	// Clients no longer listed (or cleared with an empty list) lose all
+	// their mappings; unmanaged groups keep theirs.
 	desiredClients := map[string]struct{}{}
-	for clientID := range spec.ClientRoles {
-		desiredClients[clientID] = struct{}{}
+	if spec.ClientRoles != nil {
+		for clientID := range *spec.ClientRoles {
+			desiredClients[clientID] = struct{}{}
+		}
 	}
 	for clientID, mapping := range currentByClient {
-		if _, ok := desiredClients[clientID]; !ok {
+		if _, ok := desiredClients[clientID]; !ok && spec.ClientRoles != nil {
 			if len(mapping.mappings) > 0 {
 				if err := kc.RemoveGroupClientRoles(ctx, spec.TargetRealm(), id, mapping.uuid, mapping.mappings); err != nil {
 					return changed, err
@@ -349,7 +370,10 @@ func (GroupDriver) PostApply(ctx context.Context, kc *keycloak.Client, obj Manag
 		}
 	}
 
-	for clientID, roles := range spec.ClientRoles {
+	if spec.ClientRoles == nil {
+		return changed, nil
+	}
+	for clientID, roles := range *spec.ClientRoles {
 		desiredRoles, err := resolveClientRoles(ctx, kc, spec.TargetRealm(), clientID, roles)
 		if err != nil {
 			return changed, err
