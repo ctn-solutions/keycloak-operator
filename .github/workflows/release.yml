@@ -24,21 +24,21 @@ jobs:
       id-token: write          # keyless cosign / provenance
       attestations: write      # build provenance attestations
     steps:
-      - uses: actions/checkout@f548e57e544e # v4
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
 
-      - uses: actions/setup-go@fba3fb4ead8c # v5
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
         with:
           go-version-file: go.mod
           cache: false
 
       - name: Set up QEMU (multi-arch emulation)
-        uses: docker/setup-qemu-action@288220e341e5 # v3
+        uses: docker/setup-qemu-action@288220e341e5c445ddb6d73e19a57a9012ceca88 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe63102785 # v3
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@0a596b2e7a32 # v3
+        uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -46,7 +46,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@703896b4f30f # v5
+        uses: docker/metadata-action@703896b4f30f62d53f5530a80bcdc589a3f702bc # v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -55,7 +55,7 @@ jobs:
 
       - name: Build and push image (multi-arch, with SBOM and provenance)
         id: push
-        uses: docker/build-push-action@2ca78c6bec76 # v6
+        uses: docker/build-push-action@2ca78c6bec76527009825f31aae0532b4d40d820 # v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -66,7 +66,7 @@ jobs:
           sbom: true
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@874852de93c6 # v3
+        uses: sigstore/cosign-installer@874852de93c66509b01dc7cd80f7a5385182d017 # v3
 
       - name: Sign the image (keyless)
         env:
@@ -74,14 +74,14 @@ jobs:
         run: cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
 
       - name: Generate build provenance attestation (GitHub)
-        uses: actions/attest-build-provenance@9d57eef8c06c # v2
+        uses: actions/attest-build-provenance@9d57eef8c06cd9d6b433effeeb7a6a77b3ff94ad # v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
       - name: Publish Helm chart (OCI)
-        uses: azure/setup-helm@7a9c28ba04c9 # v4
+        uses: azure/setup-helm@7a9c28ba04c99ae42726a8472c6eba25beab7bee # v4
       - name: Push chart
         env:
           VERSION: ${{ github.ref_name }}
@@ -95,7 +95,7 @@ jobs:
           mv dist/install.yaml "dist/install-${{ github.ref_name }}.yaml"
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@e5ee6bc58a36 # v2
+        uses: softprops/action-gh-release@e5ee6bc58a36b838b92fc1217f2e4b414b5abcc8 # v2
         with:
           generate_release_notes: true
           files: dist/install-*.yaml

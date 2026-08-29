@@ -14,13 +14,13 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f548e57e544e # v4
-      - uses: actions/setup-go@fba3fb4ead8c # v5
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
         with:
           go-version-file: go.mod
           cache: false
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@3de4be9e74f1 # v6
+        uses: golangci/golangci-lint-action@3de4be9e74f1eeccc4a6da5724de59f11f9b562f # v6
         with:
           version: latest
 
@@ -28,8 +28,8 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f548e57e544e # v4
-      - uses: actions/setup-go@fba3fb4ead8c # v5
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
         with:
           go-version-file: go.mod
           cache: false
@@ -40,8 +40,8 @@ jobs:
     name: Generated code is up to date
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f548e57e544e # v4
-      - uses: actions/setup-go@fba3fb4ead8c # v5
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
         with:
           go-version-file: go.mod
           cache: false

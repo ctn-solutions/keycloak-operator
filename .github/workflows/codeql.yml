@@ -19,13 +19,13 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@f548e57e544e # v4
-      - uses: actions/setup-go@fba3fb4ead8c # v5
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
         with:
           go-version-file: go.mod
           cache: false
-      - uses: github/codeql-action/init@6f530319d8c9 # v3
+      - uses: github/codeql-action/init@6f530319d8c989665d0835536ec9571735fd2008 # v3
         with:
           languages: go
-      - uses: github/codeql-action/autobuild@6f530319d8c9 # v3
-      - uses: github/codeql-action/analyze@6f530319d8c9 # v3
+      - uses: github/codeql-action/autobuild@6f530319d8c989665d0835536ec9571735fd2008 # v3
+      - uses: github/codeql-action/analyze@6f530319d8c989665d0835536ec9571735fd2008 # v3

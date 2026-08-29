@@ -18,18 +18,18 @@ jobs:
       security-events: write
       id-token: write
     steps:
-      - uses: actions/checkout@f548e57e544e # v4
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
         with:
           persist-credentials: false
-      - uses: ossf/scorecard-action@e8e61e86ea0a # v2
+      - uses: ossf/scorecard-action@e8e61e86ea0a152be84d03729c02a7300065c17d # v2
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
-      - uses: actions/upload-artifact@043fb46d1a93 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: scorecard-results
           path: results.sarif
-      - uses: github/codeql-action/upload-sarif@6f530319d8c9 # v3
+      - uses: github/codeql-action/upload-sarif@6f530319d8c989665d0835536ec9571735fd2008 # v3
         with:
           sarif_file: results.sarif
