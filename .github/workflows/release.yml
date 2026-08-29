@@ -73,7 +73,12 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
 
+      # GitHub-native attestations require a public repository or an
+      # upgraded plan; the buildx SBOM/provenance attestations and the
+      # cosign signature above already cover the supply chain. The step
+      # activates automatically when the repository goes public.
       - name: Generate build provenance attestation (GitHub)
+        if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@9d57eef8c06cd9d6b433effeeb7a6a77b3ff94ad # v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
