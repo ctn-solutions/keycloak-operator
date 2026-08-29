@@ -34,6 +34,7 @@ import (
 
 	keycloakv1alpha1 "github.com/ctn-solutions/keycloak-operator/api/v1alpha1"
 	"github.com/ctn-solutions/keycloak-operator/internal/keycloak"
+	"github.com/ctn-solutions/keycloak-operator/internal/metrics"
 )
 
 // DefaultResync is the periodic drift-correction interval.
@@ -104,6 +105,20 @@ func NewEngine(c client.Client, provider *keycloak.Provider, recorder events.Eve
 
 // Reconcile runs the shared lifecycle for one object.
 func (e *Engine) Reconcile(ctx context.Context, obj ManagedObject, drv Driver) (ctrl.Result, error) {
+	start := time.Now()
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	defer func() {
+		// Classify the outcome from the actual end state: an error return
+		// is a transient failure, a False Ready condition is terminal, and
+		// everything else succeeded.
+		outcome := metrics.OutcomeSuccess
+		if cond := meta.FindStatusCondition(obj.GetResourceStatus().Conditions, keycloakv1alpha1.ConditionReady); cond != nil && cond.Status == metav1.ConditionFalse {
+			outcome = metrics.OutcomeTerminal
+		}
+		metrics.ReconciliationsTotal.WithLabelValues(kind, outcome).Inc()
+		metrics.ReconcileDuration.WithLabelValues(kind).Observe(time.Since(start).Seconds())
+	}()
+
 	log := logf.FromContext(ctx)
 	status := obj.GetResourceStatus()
 	base := obj.DeepCopyObject().(client.Object)
@@ -271,6 +286,7 @@ func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driv
 	// even when the spec already matches.
 	changed := adopting || PayloadDiffers(remote, payload)
 	if changed {
+		metrics.DriftCorrectionsTotal.WithLabelValues(kind).Inc()
 		merged := MergePayload(cloneMap(remote), payload)
 		if err := drv.Update(ctx, kc, obj, drv.ID(remote), merged); err != nil {
 			if errors.Is(err, keycloak.ErrConflict) {
@@ -290,6 +306,9 @@ func (e *Engine) handleExisting(ctx context.Context, obj ManagedObject, drv Driv
 	if err != nil {
 		e.fail(ctx, obj, base, keycloakv1alpha1.ReasonFailed, err.Error())
 		return ctrl.Result{RequeueAfter: secretRetry}, nil
+	}
+	if postChanged {
+		metrics.DriftCorrectionsTotal.WithLabelValues(kind).Inc()
 	}
 
 	return e.finalize(ctx, obj, base, specMap, changed || postChanged)

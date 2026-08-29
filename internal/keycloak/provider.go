@@ -96,6 +96,7 @@ func (p *Provider) For(ctx context.Context, namespace, name string) (*Client, er
 	if err != nil {
 		return nil, err
 	}
+	cfg.ConnectionName = namespace + "/" + name
 	kc := New(cfg)
 
 	p.mu.Lock()

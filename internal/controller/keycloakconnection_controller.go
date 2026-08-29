@@ -21,6 +21,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,7 @@ import (
 
 	keycloakv1alpha1 "github.com/ctn-solutions/keycloak-operator/api/v1alpha1"
 	"github.com/ctn-solutions/keycloak-operator/internal/keycloak"
+	"github.com/ctn-solutions/keycloak-operator/internal/metrics"
 )
 
 // connectionRetryInterval revalidates connections periodically so credential
@@ -67,12 +70,16 @@ func (r *KeycloakConnectionReconciler) Reconcile(ctx context.Context, req ctrl.R
 		setConnectionCondition(&conn, keycloakv1alpha1.ConditionReady, metav1.ConditionFalse,
 			keycloakv1alpha1.ReasonConnectionUnavailable, err.Error(), conn.Generation)
 		_ = r.Status().Patch(ctx, &conn, client.MergeFrom(base))
+		metrics.ConnectionUp.WithLabelValues(req.Namespace, req.Name).Set(0)
 		return ctrl.Result{RequeueAfter: connectionRetry}, nil
 	}
 
-	info, err := kc.ServerInfo(ctx)
-	if err != nil {
-		log.Error(err, "Failed to reach Keycloak server", "connection", req.NamespacedName)
+	// Readiness is the token grant: credentials that can obtain a token are
+	// sufficient for realm-scoped administration. Service accounts scoped to
+	// a single realm cannot read /admin/serverinfo, so the version lookup is
+	// best-effort and never blocks the connection.
+	if _, err := kc.Token(ctx); err != nil {
+		log.Error(err, "Keycloak authentication failed", "connection", req.NamespacedName)
 		reason := keycloakv1alpha1.ReasonRetrying
 		if errors.Is(err, keycloak.ErrAuth) {
 			reason = keycloakv1alpha1.ReasonConnectionUnavailable
@@ -80,11 +87,24 @@ func (r *KeycloakConnectionReconciler) Reconcile(ctx context.Context, req ctrl.R
 		setConnectionCondition(&conn, keycloakv1alpha1.ConditionReady, metav1.ConditionFalse,
 			reason, err.Error(), conn.Generation)
 		_ = r.Status().Patch(ctx, &conn, client.MergeFrom(base))
+		metrics.ConnectionUp.WithLabelValues(req.Namespace, req.Name).Set(0)
 		return ctrl.Result{RequeueAfter: connectionRetry}, nil
 	}
 
-	version := serverVersion(info)
+	version := ""
+	info, err := kc.ServerInfo(ctx)
+	if err != nil {
+		log.Info("Server version unavailable for this account", "connection", req.NamespacedName, "error", err.Error())
+	} else {
+		version = serverVersion(info)
+	}
 	conn.Status.ServerVersion = version
+	metrics.ConnectionUp.WithLabelValues(req.Namespace, req.Name).Set(1)
+	// Drop stale version series when the server is upgraded.
+	metrics.ServerInfo.DeletePartialMatch(prometheus.Labels{"namespace": req.Namespace, "connection": req.Name})
+	if version != "" {
+		metrics.ServerInfo.WithLabelValues(req.Namespace, req.Name, version).Set(1)
+	}
 	setConnectionCondition(&conn, keycloakv1alpha1.ConditionReady, metav1.ConditionTrue,
 		keycloakv1alpha1.ReasonSucceeded, "Connected to Keycloak "+version, conn.Generation)
 	if err := r.Status().Patch(ctx, &conn, client.MergeFrom(base)); err != nil && !apierrors.IsNotFound(err) {

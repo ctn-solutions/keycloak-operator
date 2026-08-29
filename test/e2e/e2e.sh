@@ -108,7 +108,10 @@ helm upgrade --install keycloak-operator "$REPO_ROOT/charts/keycloak-operator" \
   --namespace keycloak-operator-system --create-namespace \
   --set image.repository="${IMG%%:*}" --set image.tag="${IMG##*:}" \
   --set image.pullPolicy=IfNotPresent \
-  --set resyncPeriod=30s >/dev/null
+  --set resyncPeriod=30s \
+  --set metrics.secure=false \
+  --set metrics.service.enabled=true \
+  --set metrics.service.port=8080 >/dev/null
 wait_for "operator ready" 180 kubectl rollout status deployment/keycloak-operator -n keycloak-operator-system
 
 log "Resetting server state left by previous runs"
@@ -150,9 +153,9 @@ for kind in realm/acme client/acme-portal clientscope/acme-roles-scope realmrole
 done
 
 log "Verifying server state through the Admin API"
-assert "realm acme exists with the configured display name" \
+wait_for "realm acme exists with the configured display name" 120 \
   bash -c "api GET /admin/realms/acme | grep -q 'ACME Platform'"
-assert "client acme-portal exists" \
+wait_for "client acme-portal exists" 120 \
   bash -c "api GET '/admin/realms/acme/clients?clientId=acme-portal' | grep -q acme-portal"
 # These retry: the operator converges on its resync period, not instantly.
 wait_for "client secret injected from the Secret" 120 \
@@ -177,6 +180,27 @@ log "Deletion test: removing the client CR deletes the server-side client"
 kubectl delete client acme-portal -n keycloak-system
 wait_for "client deleted from server" 120 bash -c "! api GET '/admin/realms/acme/clients?clientId=acme-portal' | grep -q acme-portal"
 echo "PASS: client deleted"
+
+log "Metrics verification"
+kubectl -n keycloak-operator-system port-forward svc/keycloak-operator-metrics 19090:8080 >/dev/null 2>&1 &
+METRICS_PF_PID=$!
+wait_for "metrics endpoint up" 60 bash -c "curl -sf http://localhost:19090/metrics -o /dev/null"
+M=$(curl -sf http://localhost:19090/metrics)
+for metric in \
+  keycloak_operator_reconciliations_total \
+  keycloak_operator_reconcile_duration_seconds_bucket \
+  keycloak_operator_drift_corrections_total \
+  keycloak_operator_connection_up \
+  keycloak_operator_server_info \
+  keycloak_operator_admin_requests_total \
+  keycloak_operator_admin_request_duration_seconds_bucket; do
+  echo "$M" | grep -q "^$metric" && echo "PASS: $metric exposed" || fail "metric $metric missing"
+done
+echo "$M" | grep -q 'keycloak_operator_connection_up{connection="production",namespace="keycloak-system"} 1' \
+  && echo "PASS: connection_up reports healthy" || fail "connection_up not healthy"
+echo "$M" | grep -q 'keycloak_operator_server_info{.*version="26.3' \
+  && echo "PASS: server_info reports the Keycloak version" || fail "server_info missing"
+kill $METRICS_PF_PID 2>/dev/null || true
 
 log "Realm orphan test: deleting the realm CR keeps the realm"
 kubectl delete realm acme -n keycloak-system

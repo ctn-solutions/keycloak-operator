@@ -158,6 +158,25 @@ at reconciliation time and never records them in status, events or annotations):
 - Container images run as non-root from a distroless base; base images are pinned by
   digest.
 
+## Observability
+
+The operator exposes custom Prometheus metrics on `:8443` alongside the
+standard controller-runtime metrics:
+
+| Metric | Type | What it tells you |
+|---|---|---|
+| `keycloak_operator_reconciliations_total` | counter | Reconciliations by kind and outcome (`success` / `error` / `terminal`) |
+| `keycloak_operator_reconcile_duration_seconds` | histogram | Reconciliation latency by kind |
+| `keycloak_operator_drift_corrections_total` | counter | Server-side updates issued to revert out-of-band changes |
+| `keycloak_operator_connection_up` | gauge | `1` when the operator can authenticate against a connection |
+| `keycloak_operator_server_info` | info gauge | Connected server version per connection |
+| `keycloak_operator_admin_requests_total` | counter | Admin API requests by connection, method and status class |
+| `keycloak_operator_admin_request_duration_seconds` | histogram | Admin API latency by connection and method |
+
+The endpoint is authenticated and authorized by default; the chart ships an
+optional Service and ServiceMonitor. See [docs/metrics.md](docs/metrics.md)
+for the full reference, alerting queries and scraping setup.
+
 ## Compatibility
 
 - Keycloak **26.x** (the Admin API paths and semantics are verified against 26.3).

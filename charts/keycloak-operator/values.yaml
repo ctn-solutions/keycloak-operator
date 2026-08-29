@@ -43,6 +43,24 @@ leaderElection:
 # -- Controller informer resync period (Go duration string, e.g. 1h, 30m).
 resyncPeriod: 1h
 
+# Metrics endpoint. It is served with authentication and authorization by
+# default (metrics.secure); scraping then requires a token whose service
+# account may access the /metrics non-resource URL. Set metrics.secure=false
+# to serve plain HTTP for scraping behind a trusted network layer.
+metrics:
+  secure: true
+  service:
+    enabled: false
+    port: 8443
+    type: ClusterIP
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scheme: https
+    tlsConfig: {}
+    bearerTokenSecret: {}
+    additionalLabels: {}
+
 # -- Container resource requests and limits.
 resources:
   requests:

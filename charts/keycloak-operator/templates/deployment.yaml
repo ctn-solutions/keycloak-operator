@@ -47,9 +47,10 @@ spec:
             - --leader-elect={{ .Values.leaderElection.enabled }}
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=:8443
+            - --metrics-secure={{ .Values.metrics.secure }}
             - --resync-period={{ .Values.resyncPeriod }}
           ports:
-            - name: https-metrics
+            - name: {{ ternary "https-metrics" "http-metrics" .Values.metrics.secure }}
               containerPort: 8443
               protocol: TCP
           livenessProbe:

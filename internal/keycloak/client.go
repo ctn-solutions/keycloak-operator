@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ctn-solutions/keycloak-operator/internal/metrics"
 )
 
 // AuthType selects the grant used to obtain administration tokens.
@@ -50,6 +52,9 @@ const DefaultAdminClientID = "admin-cli"
 
 // Config describes how to reach and authenticate against a Keycloak server.
 type Config struct {
+	// ConnectionName labels the metrics emitted for this client. It is the
+	// KeycloakConnection resource name and namespace, "ns/name".
+	ConnectionName string
 	// URL is the server base URL, without a trailing slash.
 	URL string
 	// AdminRealm holds the administration credentials. Defaults to master.
@@ -173,13 +178,45 @@ func (c *Client) invalidate() {
 // well-known status codes onto the sentinel errors and retries once after a
 // token refresh when the server rejects the credentials.
 func (c *Client) Do(ctx context.Context, method, path string, body, out any) error {
+	start := time.Now()
 	err := c.doOnce(ctx, method, path, body, out)
 	if !errors.Is(err, ErrAuth) {
+		c.observeRequest(method, start, err)
 		return err
 	}
 	// The cached token may have been revoked server-side: refresh once.
 	c.invalidate()
-	return c.doOnce(ctx, method, path, body, out)
+	err = c.doOnce(ctx, method, path, body, out)
+	c.observeRequest(method, start, err)
+	return err
+}
+
+// observeRequest records one Admin API request in the metrics. The status
+// class is derived from the error mapping: sentinel errors carry the class,
+// anything else counts as a client-side failure (5xx-class).
+func (c *Client) observeRequest(method string, start time.Time, err error) {
+	if c.cfg.ConnectionName == "" {
+		return
+	}
+	code := "2xx"
+	switch {
+	case errors.Is(err, ErrNotFound) || errors.Is(err, ErrConflict):
+		code = "4xx"
+	case errors.Is(err, ErrAuth):
+		code = "4xx"
+	case err != nil:
+		var apiErr *APIError
+		if errors.As(err, &apiErr) {
+			code = "4xx"
+			if apiErr.StatusCode >= 500 {
+				code = "5xx"
+			}
+		} else {
+			code = "error"
+		}
+	}
+	metrics.AdminRequestsTotal.WithLabelValues(c.cfg.ConnectionName, method, code).Inc()
+	metrics.AdminRequestDuration.WithLabelValues(c.cfg.ConnectionName, method).Observe(time.Since(start).Seconds())
 }
 
 func (c *Client) doOnce(ctx context.Context, method, path string, body, out any) error {

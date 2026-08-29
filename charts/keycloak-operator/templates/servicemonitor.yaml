@@ -1,0 +1,27 @@
+{{- if and .Values.metrics.serviceMonitor.enabled .Values.metrics.service.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "keycloak-operator.fullname" . }}
+  labels:
+    {{- include "keycloak-operator.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "keycloak-operator.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: {{ ternary "https-metrics" "http-metrics" .Values.metrics.secure }}
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      scheme: {{ .Values.metrics.serviceMonitor.scheme }}
+      {{- if .Values.metrics.serviceMonitor.tlsConfig }}
+      tlsConfig:
+        {{- toYaml .Values.metrics.serviceMonitor.tlsConfig | nindent 8 }}
+      {{- end }}
+      {{- with .Values.metrics.serviceMonitor.bearerTokenSecret }}
+      bearerTokenSecret:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
