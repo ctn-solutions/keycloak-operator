@@ -99,6 +99,15 @@ The metrics endpoint requires authentication by default. Configure the
 scraper's token as described in [metrics.md](metrics.md), or set
 `metrics.secure=false` in the chart for trusted network layers.
 
+## Upgrading from setups with inline secrets
+
+The API server rejects inline SMTP passwords and identity-provider client
+secrets through CEL validation rules. A resource created with an inline
+secret **before** those rules existed cannot be updated or deleted until the
+inline value is removed — CEL validations apply to every write, including
+finalizer removal. Migrate the value to a Secret and reference it through
+`smtpServerSecretRef` / `configSecretRef` before upgrading.
+
 ## Diagnostics checklist
 
 ```bash
