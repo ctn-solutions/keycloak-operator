@@ -41,6 +41,7 @@ import (
 	keycloakv1alpha1 "github.com/ctn-solutions/keycloak-operator/api/v1alpha1"
 	"github.com/ctn-solutions/keycloak-operator/internal/controller"
 	"github.com/ctn-solutions/keycloak-operator/internal/keycloak"
+	keycloakversion "github.com/ctn-solutions/keycloak-operator/internal/version"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -70,6 +71,7 @@ func main() {
 	var enableHTTP2 bool
 	var resyncPeriod time.Duration
 	var watchNamespaceList string
+	var showVersion bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -92,11 +94,17 @@ func main() {
 		"Period between drift-correction passes for managed resources.")
 	flag.StringVar(&watchNamespaceList, "watch-namespace", "",
 		"Comma-separated namespaces the operator is restricted to. Defaults to all namespaces.")
+	flag.BoolVar(&showVersion, "version", false, "Print the operator version and exit.")
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if showVersion {
+		println(keycloakversion.String())
+		return
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -262,7 +270,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("Starting manager")
+	setupLog.Info("Starting manager",
+		"version", keycloakversion.Version,
+		"commit", keycloakversion.Commit,
+		"buildDate", keycloakversion.Date)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
