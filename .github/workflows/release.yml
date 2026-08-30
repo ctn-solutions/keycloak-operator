@@ -86,7 +86,7 @@ jobs:
           push-to-registry: true
 
       - name: Publish Helm chart (OCI)
-        uses: azure/setup-helm@7a9c28ba04c99ae42726a8472c6eba25beab7bee # v4
+        uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
       - name: Push chart
         env:
           VERSION: ${{ github.ref_name }}
