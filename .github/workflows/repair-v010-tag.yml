@@ -1,0 +1,27 @@
+# One-off repair: the v0.1.0 release bundle pins the image tag v0.1.0 but
+# the release pipeline (since fixed) published only 0.1.0. This job creates
+# the missing v-prefixed tag pointing at the same digest, so the signature
+# and attestations remain valid. Delete this file after it has run.
+name: Repair v0.1.0 image tag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+jobs:
+  alias:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Alias 0.1.0 as v0.1.0
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/ctn-solutions/keycloak-operator:v0.1.0 \
+            ghcr.io/ctn-solutions/keycloak-operator:0.1.0

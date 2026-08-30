@@ -181,11 +181,15 @@ helm_managed_label() {
 }
 
 installed_version() {
-  # Print the image tag of the installed operator (e.g. "0.2.0").
+  # Print the version of the installed operator (e.g. "0.2.0"), with any
+  # leading "v" stripped so it compares equal to the release tag.
   local image
   image="$("${KUBECTL}" get deployment "${DEPLOYMENT}" -n "${NAMESPACE}" \
     -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
-  [ -n "${image}" ] && printf '%s\n' "${image##*:}"
+  [ -n "${image}" ] || return 0
+  local tag="${image##*:}"
+  case "${tag}" in v*) tag="${tag#v}" ;; esac
+  printf '%s\n' "${tag}"
   return 0
 }
 
