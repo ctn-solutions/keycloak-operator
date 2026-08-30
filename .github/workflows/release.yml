@@ -99,6 +99,7 @@ jobs:
           build-args: |
             VERSION=${{ env.TAG_NAME }}
             COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
           provenance: mode=max
           sbom: true
 
