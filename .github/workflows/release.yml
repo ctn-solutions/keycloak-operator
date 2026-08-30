@@ -97,7 +97,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${TAG_NAME}
+            VERSION=${{ env.TAG_NAME }}
             COMMIT=${{ github.sha }}
           provenance: mode=max
           sbom: true
@@ -126,7 +126,7 @@ jobs:
         uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
       - name: Push chart
         env:
-          VERSION: ${TAG_NAME}
+          VERSION: ${{ env.TAG_NAME }}
         run: |
           helm package charts/keycloak-operator --version "${VERSION#v}" --app-version "${VERSION#v}"
           helm push "keycloak-operator-${VERSION#v}.tgz" "oci://${REGISTRY}/${{ github.repository_owner }}/charts"
