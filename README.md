@@ -275,9 +275,9 @@ See [docs/design.md](docs/design.md) for the architecture and design decisions,
 ## Roadmap
 
 - User management (with write-once, SecretRef-only credentials)
+- Group sub-groups (hierarchical)
 - Client authorization services
 - Realm-level default groups and client policies
-- CI pipelines and released images
 
 ## License
 
