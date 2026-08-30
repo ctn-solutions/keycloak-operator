@@ -2,8 +2,8 @@ apiVersion: v2
 name: keycloak-operator
 description: Kubernetes operator managing Keycloak realms, clients, roles, identity providers and groups declaratively
 type: application
-version: 0.1.0
-appVersion: 0.1.0
+version: 0.2.0
+appVersion: 0.2.0
 kubeVersion: ">= 1.25.0-0"
 home: https://github.com/ctn-solutions/keycloak-operator
 license: Apache-2.0
