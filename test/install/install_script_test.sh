@@ -147,6 +147,51 @@ test_fetch_bundle_rejects_bad_checksum() {
   rm -rf "${dir}"
 }
 
+test_fetch_bundle_fails_closed_on_missing_entry() {
+  local dir; dir="$(mktemp -d)"
+  printf 'bundle-content\n' > "${GITHUB_FIXTURES}/install-v0.1.0.yaml"
+  # Sums file exists but does not list the bundle.
+  printf '0000000000000000000000000000000000000000000000000000000000000000  other-file.yaml\n' \
+    > "${GITHUB_FIXTURES}/sha256sums.txt"
+
+  local output status=0
+  output="$(fetch_bundle v0.1.0 "${dir}" 2>&1)" || status=$?
+  if [ "${status}" -ne 0 ]; then ok "fetch_bundle fails closed when the entry is missing"; else fail "fetch_bundle must fail when the sums entry is missing"; fi
+  assert_contains "missing entry reports the failure" "does not list" "${output}"
+  rm -rf "${dir}"
+}
+
+test_fetch_bundle_fails_closed_without_checksums() {
+  local dir; dir="$(mktemp -d)"
+  printf 'bundle-content\n' > "${GITHUB_FIXTURES}/install-v0.1.0.yaml"
+  rm -f "${GITHUB_FIXTURES}/sha256sums.txt"
+
+  local output status=0
+  output="$(fetch_bundle v0.1.0 "${dir}" 2>&1)" || status=$?
+  if [ "${status}" -ne 0 ]; then ok "fetch_bundle refuses unverified bundles by default"; else fail "fetch_bundle must refuse unverified bundles by default"; fi
+  assert_contains "refusal mentions --allow-unverified" "--allow-unverified" "${output}"
+
+  ALLOW_UNVERIFIED=1
+  status=0
+  output="$(fetch_bundle v0.1.0 "${dir}" 2>&1)" || status=$?
+  assert_eq "fetch_bundle proceeds with --allow-unverified" "0" "${status}"
+  assert_contains "opt-out warns about the unverified bundle" "proceeding unverified" "${output}"
+  ALLOW_UNVERIFIED=0
+  rm -rf "${dir}"
+}
+
+test_tag_validation() {
+  local status=0
+  validate_tag "v0.2.0" 2>/dev/null || status=$?
+  assert_eq "validate_tag accepts a semver tag" "0" "${status}"
+  status=0
+  output="$(validate_tag 'v0.2.0+build.1' 2>&1)" || status=$?
+  if [ "${status}" -ne 0 ]; then ok "validate_tag rejects tags with metacharacters"; else fail "validate_tag must reject non-plain tags"; fi
+  status=0
+  output="$(validate_tag "not-a-version" 2>&1)" || status=$?
+  if [ "${status}" -ne 0 ]; then ok "validate_tag rejects garbage"; else fail "validate_tag must reject garbage"; fi
+}
+
 test_fetch_bundle_warns_without_checksums() {
   local dir; dir="$(mktemp -d)"
   printf 'bundle-content\n' > "${GITHUB_FIXTURES}/install-v0.1.0.yaml"
@@ -216,17 +261,44 @@ YAML
   assert_contains "uninstall deletes the deployment" "delete" "$(logged)"
 }
 
-test_uninstall_purge_crds_uses_label() {
+test_uninstall_purge_crds_uses_names() {
   reset_state
   local bundle="${GITHUB_FIXTURES}/bundle.yaml"
   printf -- '---\nkind: CustomResourceDefinition\n' > "${bundle}"
   reset_log
   PURGE_CRDS=1 ASSUME_YES=1 cmd_uninstall v0.2.0 "${bundle}" >/dev/null 2>&1
-  if grep -q "delete crd -l app.kubernetes.io/name=keycloak-operator" "${KUBECTL_LOG}"; then
-    ok "--purge-crds deletes CRDs by label"
+  if grep -q "realms.keycloak.ctn-solutions.io" "${KUBECTL_LOG}"; then
+    ok "--purge-crds deletes CRDs by explicit name"
   else
-    fail "--purge-crds must delete CRDs by label (got: $(logged))"
+    fail "--purge-crds must delete CRDs by name (got: $(logged))"
   fi
+}
+
+test_uninstall_honors_dry_run() {
+  reset_state
+  local bundle="${GITHUB_FIXTURES}/bundle.yaml"
+  printf -- '---\nkind: Namespace\nmetadata:\n  name: keycloak-operator-system\n' > "${bundle}"
+  reset_log
+  DRY_RUN=1 ASSUME_YES=1 PURGE_CRDS=0 cmd_uninstall v0.2.0 "${bundle}" >/dev/null 2>&1
+  if grep -q "delete --dry-run=server" "${KUBECTL_LOG}"; then
+    ok "uninstall honors --dry-run"
+  else
+    fail "uninstall --dry-run must not delete (got: $(logged))"
+  fi
+  if grep -qE "delete --ignore-not-found -f" "${KUBECTL_LOG}"; then
+    fail "uninstall --dry-run must not perform a real delete"
+  else
+    ok "uninstall --dry-run performs no real deletion"
+  fi
+}
+
+test_uninstall_refuses_helm_managed() {
+  reset_state
+  KUBECTL_JSONPATH="Helm"
+  local output status=0
+  output="$(cmd_uninstall v0.2.0 /dev/null 2>&1)" || status=$?
+  if [ "${status}" -ne 0 ]; then ok "uninstall refuses Helm-managed installs"; else fail "uninstall must refuse Helm-managed installs"; fi
+  assert_contains "refusal mentions helm uninstall" "helm uninstall" "${output}"
 }
 
 test_version_flag_normalization() {
@@ -261,11 +333,15 @@ GITHUB_FIXTURES="$(mktemp -d)"
 test_keep_non_crd_filters_crds
 test_fetch_bundle_verifies_checksum
 test_fetch_bundle_rejects_bad_checksum
-test_fetch_bundle_warns_without_checksums
+test_fetch_bundle_fails_closed_on_missing_entry
+test_fetch_bundle_fails_closed_without_checksums
+test_tag_validation
 test_install_refuses_helm_managed
 test_upgrade_noop_when_current
 test_uninstall_keeps_crds
-test_uninstall_purge_crds_uses_label
+test_uninstall_purge_crds_uses_names
+test_uninstall_honors_dry_run
+test_uninstall_refuses_helm_managed
 test_version_flag_normalization
 
 printf '\n%d passed, %d failed\n' "${PASS}" "${FAIL}"

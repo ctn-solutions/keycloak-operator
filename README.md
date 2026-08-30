@@ -105,7 +105,7 @@ helm install keycloak-operator oci://ghcr.io/ctn-solutions/charts/keycloak-opera
 Or with the installer script (no Helm required):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ctn-solutions/keycloak-operator/main/install.sh -o install.sh
+curl -fsSL https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.sh -o install.sh
 bash install.sh install
 ```
 

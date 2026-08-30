@@ -34,9 +34,11 @@ trap 'rm -rf "${WORK}"' EXIT
 echo "==> Fetching the ${TAG} tarball checksum"
 TARBALL_URL="https://github.com/${REPO}/archive/refs/tags/${TAG}.tar.gz"
 if command -v shasum >/dev/null 2>&1; then
-  SHA256="$(curl -fsSL "${TARBALL_URL}" | shasum -a 256 | awk '{print $1}')"
+  SHA256="$(curl -fsSL "${TARBALL_URL}" | shasum -a 256 | awk '{print $1}')" \
+    || die "could not download ${TARBALL_URL}"
 else
-  SHA256="$(curl -fsSL "${TARBALL_URL}" | sha256sum | awk '{print $1}')"
+  SHA256="$(curl -fsSL "${TARBALL_URL}" | sha256sum | awk '{print $1}')" \
+    || die "could not query the latest release (network error)."
 fi
 [ -n "${SHA256}" ] || die "could not compute the tarball checksum"
 

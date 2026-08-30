@@ -35,20 +35,21 @@ The installer script downloads a release bundle, verifies its sha256
 checksum and applies it with `kubectl` alone:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ctn-solutions/keycloak-operator/main/install.sh | bash
+curl -fsSL https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.sh | bash
 ```
 
 The piped-to-bash form is convenient but blind; to review before running:
 
 ```bash
-curl -fsSLO https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.yaml
-# inspect, then:
-kubectl apply -f install.yaml
+curl -fsSLO https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.sh
+# inspect the script, then:
+bash install.sh install
 ```
 
-The script also handles upgrades, uninstalls and version pinning — see
-[Installing with the script](#option-4-the-installer-script) below and run
-`install.sh --help` for the full reference.
+The one-liner downloads the script from the latest release (immutable
+per release). sha256 checksums protect the downloaded bundle against
+corruption; when `cosign` is installed the checksums manifest is also
+signature-verified (keyless), which protects against tampering.
 
 ## Option 3 — Helm from a checkout
 
@@ -78,7 +79,7 @@ installs — pick one method and stay with it.
 
 ```bash
 # Install the latest release (or re-run to converge)
-curl -fsSL https://raw.githubusercontent.com/ctn-solutions/keycloak-operator/main/install.sh -o install.sh
+curl -fsSL https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.sh -o install.sh
 bash install.sh install
 
 # Pin a version

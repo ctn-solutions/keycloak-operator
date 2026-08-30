@@ -34,3 +34,15 @@ receive an acknowledgement within 72 hours.
     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     ghcr.io/ctn-solutions/keycloak-operator:<tag>
   ```
+- Release bundles (`install.yaml`, `install-vX.Y.Z.yaml`) ship with a
+  `sha256sums.txt` manifest that the installer verifies, and the manifest
+  itself is signed keyless. Verify the checksums manifest before trusting
+  a downloaded bundle:
+
+  ```bash
+  cosign verify-blob \
+    --bundle sha256sums.txt.cosign.bundle \
+    --certificate-identity-regexp 'https://github.com/ctn-solutions/keycloak-operator/\.github/workflows/release\.yml@refs/tags/v.*' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    sha256sums.txt
+  ```
