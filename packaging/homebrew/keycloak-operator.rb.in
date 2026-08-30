@@ -1,0 +1,34 @@
+# Homebrew formula for the keycloak-operator installer CLI.
+#
+# This file is GENERATED from packaging/homebrew/keycloak-operator.rb.in by
+# hack/update-tap.sh — never edit the tap formula by hand.
+class KeycloakOperator < Formula
+  desc "Installer CLI for the ctn-solutions Keycloak operator"
+  homepage "https://github.com/ctn-solutions/keycloak-operator"
+  url "https://github.com/ctn-solutions/keycloak-operator/archive/refs/tags/v@VERSION@.tar.gz"
+  sha256 "@SHA256@"
+  license "Apache-2.0"
+
+  def install
+    bin.install "install.sh" => "keycloak-operator"
+  end
+
+  def caveats
+    <<~EOS
+      The `keycloak-operator` CLI installs, upgrades and uninstalls the
+      Keycloak operator in your Kubernetes cluster:
+
+        keycloak-operator install
+        keycloak-operator upgrade
+        keycloak-operator uninstall
+
+      It is a wrapper around the release install bundle; the operator itself
+      runs in your cluster as a container image. Helm-managed installs are
+      refused — manage those with `helm upgrade`.
+    EOF
+  end
+
+  test do
+    assert_match "install", shell_output("#{bin}/keycloak-operator --help")
+  end
+end

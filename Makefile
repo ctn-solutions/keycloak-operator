@@ -1,5 +1,13 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
+# Build metadata injected into the manager binary (see internal/version).
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS ?= -s -w \
+  -X github.com/ctn-solutions/keycloak-operator/internal/version.Version=$(VERSION) \
+  -X github.com/ctn-solutions/keycloak-operator/internal/version.Commit=$(GIT_COMMIT) \
+  -X github.com/ctn-solutions/keycloak-operator/internal/version.Date=$(BUILD_DATE)
 # YEAR defines the year value used for substituting the YEAR placeholder in the boilerplate header.
 YEAR ?= $(shell date +%Y)
 
@@ -110,11 +118,11 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build -ldflags "$(LDFLAGS)" -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run -ldflags "$(LDFLAGS)" ./cmd/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.

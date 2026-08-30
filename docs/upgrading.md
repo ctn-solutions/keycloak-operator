@@ -4,6 +4,7 @@
 
 | Operator version | Keycloak servers | Kubernetes | Chart |
 |---|---|---|---|
+| `v0.2.x` | 26.0 – 26.3 (integration-tested) | 1.25+ | `0.2.0` |
 | `v0.1.x` | 26.0 – 26.3 (integration-tested) | 1.25+ | `0.1.0` |
 
 The integration suite runs against every listed Keycloak version on every
@@ -25,7 +26,20 @@ helm upgrade keycloak-operator oci://ghcr.io/ctn-solutions/charts/keycloak-opera
   -n keycloak-operator-system
 ```
 
-### Plain manifest
+### Plain manifest (installer script)
+
+```bash
+bash install.sh upgrade
+```
+
+The script resolves the latest release, verifies the bundle checksum and
+applies it — the bundle includes the current CRDs and the deployment pinned
+to the released image — then waits for the rollout. Pin a version with
+`--version vX.Y.Z`. Homebrew users update the CLI itself with
+`brew upgrade keycloak-operator`; the operator upgrade is still
+`keycloak-operator upgrade`.
+
+### Plain manifest (manual)
 
 ```bash
 kubectl apply -f https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.yaml

@@ -1,0 +1,36 @@
+# Categorizes the auto-generated release notes. Categories match the
+# Conventional Commits prefixes used in PR titles (see CONTRIBUTING.md);
+# maintainers add the matching label when a PR title does not carry the
+# prefix cleanly.
+changelog:
+  exclude:
+    labels:
+      - skip-release-notes
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking
+        - breaking-change
+    - title: Security
+      labels:
+        - security
+    - title: Features
+      labels:
+        - feat
+        - feature
+        - enhancement
+    - title: Bug fixes
+      labels:
+        - fix
+        - bug
+    - title: Documentation
+      labels:
+        - docs
+        - documentation
+    - title: CI & build
+      labels:
+        - ci
+        - build
+    - title: Other changes
+      labels:
+        - "*"

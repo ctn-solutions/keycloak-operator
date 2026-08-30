@@ -9,10 +9,11 @@ namespace: keycloak-operator-system
 namePrefix: keycloak-operator-
 
 # Labels to add to all resources and selectors.
-#labels:
-#- includeSelectors: true
-#  pairs:
-#    someName: someValue
+labels:
+- includeSelectors: false
+  pairs:
+    app.kubernetes.io/name: keycloak-operator
+    app.kubernetes.io/managed-by: kustomize
 
 resources:
 - ../crd

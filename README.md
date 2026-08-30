@@ -73,21 +73,6 @@ spec:
   never deleted implicitly (`Orphan`), and `master` is locked behind an explicit
   annotation.
 
-## Why trust it?
-
-- **Every commit is validated end-to-end** against real Keycloak servers — the CI
-  integration matrix runs the full suite on Keycloak 26.0, 26.1, 26.2 and 26.3, and
-  releases are gated on the same matrix.
-- **Verifiable supply chain** — images are multi-arch, built from a distroless base,
-  signed with Sigstore cosign (keyless) and carry SBOM + build provenance attestations.
-  Verify with the command in [SECURITY.md](SECURITY.md).
-- **Secrets never touch your Git repository** — sensitive values are injected from
-  Kubernetes Secrets at reconciliation time, and inline secrets are rejected by the API
-  server itself.
-- **Safe by default** — foreign resources are never touched (`CreateOnly`), realms are
-  never deleted implicitly (`Orphan`), and `master` is locked behind an explicit
-  annotation.
-
 ## Resource types
 
 | CRD | Manages | Natural key |
@@ -117,17 +102,24 @@ helm install keycloak-operator oci://ghcr.io/ctn-solutions/charts/keycloak-opera
   --namespace keycloak-operator-system --create-namespace
 ```
 
-Or from a checkout of this repository:
+Or with the installer script (no Helm required):
 
 ```bash
-helm install keycloak-operator charts/keycloak-operator \
-  --namespace keycloak-operator-system --create-namespace
+curl -fsSL https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.sh -o install.sh
+bash install.sh install
 ```
 
-Or without Helm, as a single manifest:
+Or via Homebrew (installs the installer as a CLI):
 
 ```bash
-kubectl apply -f https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install-v0.1.0.yaml
+brew install ctn-solutions/tap/keycloak-operator
+keycloak-operator install
+```
+
+Or without any tooling, as a single manifest:
+
+```bash
+kubectl apply -f https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.yaml
 ```
 
 **Namespace-scoped installs.** By default the operator watches all
@@ -280,7 +272,9 @@ bash test/e2e/e2e.sh
 | [CRD reference](docs/crd-reference.md) | Every field of every resource |
 | [Metrics](docs/metrics.md) | Custom metrics, alerting queries, Prometheus scraping |
 | [Troubleshooting](docs/troubleshooting.md) | Runbook for every `Ready=False` reason |
+| [Troubleshooting](docs/troubleshooting.md) | Runbook for every `Ready=False` reason |
 | [Upgrading](docs/upgrading.md) | Operator and CRD upgrades, compatibility matrix, rollbacks |
+| [Release process](docs/release-process.md) | Versioning policy, release cadence, release checklist |
 | [Design](docs/design.md) | Architecture and design decisions |
 | [Chart values](charts/keycloak-operator/README.md) | Full Helm values reference and example profiles |
 

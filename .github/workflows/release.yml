@@ -49,8 +49,15 @@ jobs:
       packages: write          # GHCR push
       id-token: write          # keyless cosign / provenance
       attestations: write      # build provenance attestations
+    env:
+      TAG_NAME: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
+
+      # The tag name is interpolated into shell commands and Docker build
+      # args below; refuse anything that is not a plain semver tag.
+      - name: Validate the tag
+        run: '[[ "${TAG_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag ${TAG_NAME} is not vX.Y.Z"; exit 1; }'
 
       - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
         with:
@@ -77,6 +84,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
+            type=semver,pattern={{raw}}
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push image (multi-arch, with SBOM and provenance)
@@ -88,6 +96,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${TAG_NAME}
+            COMMIT=${{ github.sha }}
           provenance: mode=max
           sbom: true
 
@@ -115,20 +126,34 @@ jobs:
         uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a # v4
       - name: Push chart
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${TAG_NAME}
         run: |
           helm package charts/keycloak-operator --version "${VERSION#v}" --app-version "${VERSION#v}"
           helm push "keycloak-operator-${VERSION#v}.tgz" "oci://${REGISTRY}/${{ github.repository_owner }}/charts"
 
       - name: Build the plain-Kubernetes install bundle
         run: |
-          make build-installer IMG="${REGISTRY}/${IMAGE_NAME}:${{ github.ref_name }}"
-          cp dist/install.yaml "dist/install-${{ github.ref_name }}.yaml"
+          make build-installer IMG="${REGISTRY}/${IMAGE_NAME}:${TAG_NAME}"
+          cp install.sh "dist/install.sh"
+          cp dist/install.yaml "dist/install-${TAG_NAME}.yaml"
+          (cd dist && sha256sum install.yaml "install-${TAG_NAME}.yaml" install.sh > sha256sums.txt)
+
+      # The checksums manifest is what the installer trusts; sign it so its
+      # authenticity does not depend on GitHub alone. cosign verify-blob
+      # instructions are in SECURITY.md.
+      - name: Sign the checksums manifest (keyless)
+        run: |
+          cosign sign-blob --yes \
+            --bundle "dist/sha256sums.txt.cosign.bundle" \
+            "dist/sha256sums.txt"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@e5ee6bc58a36b838b92fc1217f2e4b414b5abcc8 # v2
         with:
           generate_release_notes: true
           files: |
+            dist/install.sh
             dist/install.yaml
             dist/install-*.yaml
+            dist/sha256sums.txt
+            dist/sha256sums.txt.cosign.bundle
