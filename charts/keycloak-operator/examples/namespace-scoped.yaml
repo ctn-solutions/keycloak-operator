@@ -1,0 +1,8 @@
+# Namespace-scoped install: Role/RoleBinding instead of ClusterRole, the
+# operator's cache restricted to the release namespace. For tenants that
+# cannot grant cluster-wide RBAC.
+rbac:
+  clusterScoped: false
+
+# Resources managed by this instance must live in the release namespace and
+# reference a KeycloakConnection in the same namespace.

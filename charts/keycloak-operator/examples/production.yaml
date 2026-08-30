@@ -1,0 +1,25 @@
+# Production baseline: pinned image, explicit resources, metrics on,
+# conservative resync.
+image:
+  repository: ghcr.io/ctn-solutions/keycloak-operator
+  tag: "0.1.0"          # pin explicitly; do not float on major.minor
+  pullPolicy: IfNotPresent
+
+replicaCount: 2          # leader election keeps one active operator
+
+resyncPeriod: 1h
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+metrics:
+  secure: true
+  service:
+    enabled: true
+
+podAnnotations:
+  prometheus.io/scrape: "false"  # scrape through the ServiceMonitor instead

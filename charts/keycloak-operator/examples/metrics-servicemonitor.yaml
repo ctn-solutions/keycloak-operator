@@ -1,0 +1,17 @@
+# Metrics exposed for a Prometheus Operator stack. The endpoint stays
+# authenticated by default; the ServiceMonitor needs a bearer token whose
+# service account may access the /metrics non-resource URL (see
+# docs/metrics.md).
+metrics:
+  service:
+    enabled: true
+    port: 8443
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scheme: https
+    bearerTokenSecret:
+      name: prometheus-metrics-token
+      key: token
+    additionalLabels:
+      release: prometheus  # match your Prometheus Operator's ruleSelector

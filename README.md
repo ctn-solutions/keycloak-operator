@@ -106,6 +106,10 @@ in the same namespace.
 
 ## Quickstart
 
+Install the operator, then walk through the
+[getting-started guide](docs/getting-started.md) — from zero to a managed
+realm in about ten minutes, including a throwaway Keycloak server.
+
 Install with Helm from the OCI registry (recommended):
 
 ```bash
@@ -267,10 +271,18 @@ End-to-end tests against a real Keycloak 26 server on a local cluster:
 bash test/e2e/e2e.sh
 ```
 
-See [docs/design.md](docs/design.md) for the architecture and design decisions,
-[docs/crd-reference.md](docs/crd-reference.md) for the full CRD reference,
-[docs/metrics.md](docs/metrics.md) for the metrics reference and scraping setup, and
-[docs/troubleshooting.md](docs/troubleshooting.md) for the failure-mode runbook.
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [Getting started](docs/getting-started.md) | Zero to a managed realm in ten minutes, with a throwaway Keycloak |
+| [Installation](docs/installation.md) | Helm (OCI and local), plain manifest, namespace-scoped installs, uninstall |
+| [CRD reference](docs/crd-reference.md) | Every field of every resource |
+| [Metrics](docs/metrics.md) | Custom metrics, alerting queries, Prometheus scraping |
+| [Troubleshooting](docs/troubleshooting.md) | Runbook for every `Ready=False` reason |
+| [Upgrading](docs/upgrading.md) | Operator and CRD upgrades, compatibility matrix, rollbacks |
+| [Design](docs/design.md) | Architecture and design decisions |
+| [Chart values](charts/keycloak-operator/README.md) | Full Helm values reference and example profiles |
 
 ## Roadmap
 

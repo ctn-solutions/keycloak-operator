@@ -27,6 +27,20 @@ make lint                 # golangci-lint
 - Commit messages follow the Conventional Commits style (`feat:`, `fix:`,
   `docs:`, `test:`, `chore:`).
 
+## Release process
+
+Releases are fully automated — a maintainer only cuts a tag:
+
+1. Update `Chart.yaml` (`version` and `appVersion`) to match the new tag.
+2. Verify `main` is green (CI + the Keycloak integration matrix).
+3. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+
+The release workflow runs the integration suite against every supported
+Keycloak version on the tagged commit, builds and signs the multi-arch
+image, publishes the Helm chart to `oci://ghcr.io/ctn-solutions/charts`,
+attaches the install bundle to the GitHub release and generates the release
+notes. A failed integration job aborts the release.
+
 ## Reporting issues
 
 Open a GitHub issue with the operator logs, the resource manifests involved
