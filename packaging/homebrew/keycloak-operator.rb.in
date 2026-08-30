@@ -25,7 +25,7 @@ class KeycloakOperator < Formula
       It is a wrapper around the release install bundle; the operator itself
       runs in your cluster as a container image. Helm-managed installs are
       refused — manage those with `helm upgrade`.
-    EOF
+    EOS
   end
 
   test do
