@@ -320,7 +320,7 @@ cmd_uninstall() {
     die "the existing install is managed by Helm; use 'helm uninstall' instead of this script."
   fi
 
-  if [ "${ASSUME_YES}" != "1" ]; then
+  if [ "${ASSUME_YES}" != "1" ] && [ "${DRY_RUN}" != "1" ]; then
     if [ "${PURGE_CRDS}" = "1" ]; then
       warn "--purge-crds deletes every Realm, Client, ClientScope, RealmRole,"
       warn "IdentityProvider and Group resource in the cluster."
