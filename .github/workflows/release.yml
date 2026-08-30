@@ -88,6 +88,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
           provenance: mode=max
           sbom: true
 
@@ -124,6 +127,7 @@ jobs:
         run: |
           make build-installer IMG="${REGISTRY}/${IMAGE_NAME}:${{ github.ref_name }}"
           cp dist/install.yaml "dist/install-${{ github.ref_name }}.yaml"
+          (cd dist && sha256sum install.yaml "install-${{ github.ref_name }}.yaml" > sha256sums.txt)
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@e5ee6bc58a36b838b92fc1217f2e4b414b5abcc8 # v2
@@ -132,3 +136,4 @@ jobs:
           files: |
             dist/install.yaml
             dist/install-*.yaml
+            dist/sha256sums.txt
