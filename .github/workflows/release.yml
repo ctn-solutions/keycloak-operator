@@ -131,6 +131,16 @@ jobs:
           helm package charts/keycloak-operator --version "${VERSION#v}" --app-version "${VERSION#v}"
           helm push "keycloak-operator-${VERSION#v}.tgz" "oci://${REGISTRY}/${{ github.repository_owner }}/charts"
 
+      # The OCI chart package may be private (GHCR packages default to
+      # private); attach the packaged chart to the release as well so the
+      # tarball is always publicly downloadable.
+      - name: Attach the chart tarball to the release
+        run: |
+          gh release upload "${TAG_NAME}" "keycloak-operator-${VERSION#v}.tgz" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ env.TAG_NAME }}
+
       - name: Build the plain-Kubernetes install bundle
         run: |
           make build-installer IMG="${REGISTRY}/${IMAGE_NAME}:${TAG_NAME}"
