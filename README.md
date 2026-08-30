@@ -1,4 +1,16 @@
-# Keycloak Operator
+<div align="center">
+
+<img src="docs/assets/header.svg" alt="Keycloak Operator — Keycloak configuration as code on Kubernetes" width="100%">
+
+[![CI](https://github.com/ctn-solutions/keycloak-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/ctn-solutions/keycloak-operator/actions/workflows/ci.yml)
+[![E2E](https://github.com/ctn-solutions/keycloak-operator/actions/workflows/e2e.yml/badge.svg)](https://github.com/ctn-solutions/keycloak-operator/actions/workflows/e2e.yml)
+[![CodeQL](https://github.com/ctn-solutions/keycloak-operator/actions/workflows/codeql.yml/badge.svg)](https://github.com/ctn-solutions/keycloak-operator/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ctn-solutions/keycloak-operator/badge)](https://github.com/ctn-solutions/keycloak-operator/security/scorecard)
+[![Release](https://img.shields.io/github/v/release/ctn-solutions/keycloak-operator)](https://github.com/ctn-solutions/keycloak-operator/releases)
+[![License](https://img.shields.io/github/license/ctn-solutions/keycloak-operator)](LICENSE)
+[![Keycloak 26.x](https://img.shields.io/badge/Keycloak-26.x-1d52de)](https://www.keycloak.org/)
+
+</div>
 
 A Kubernetes operator that manages [Keycloak](https://www.keycloak.org/) configuration
 declaratively. Realms, clients, client scopes, roles, identity providers and groups live in
@@ -45,6 +57,36 @@ spec:
   validation rules — no webhook required.
 - **Multi-server** — one operator deployment manages any number of Keycloak servers through
   `KeycloakConnection` resources.
+
+## Why trust it?
+
+- **Every commit is validated end-to-end** against real Keycloak servers — the CI
+  integration matrix runs the full suite on Keycloak 26.0, 26.1, 26.2 and 26.3 before
+  anything ships, and releases are gated on the same matrix.
+- **Verifiable supply chain** — images are multi-arch, built from a distroless base,
+  signed with Sigstore cosign (keyless) and carry SBOM + build provenance attestations.
+  Verify with the command in [SECURITY.md](SECURITY.md).
+- **Secrets never touch your Git repository** — sensitive values are injected from
+  Kubernetes Secrets at reconciliation time, and inline secrets are rejected by the API
+  server itself.
+- **Safe by default** — foreign resources are never touched (`CreateOnly`), realms are
+  never deleted implicitly (`Orphan`), and `master` is locked behind an explicit
+  annotation.
+
+## Why trust it?
+
+- **Every commit is validated end-to-end** against real Keycloak servers — the CI
+  integration matrix runs the full suite on Keycloak 26.0, 26.1, 26.2 and 26.3, and
+  releases are gated on the same matrix.
+- **Verifiable supply chain** — images are multi-arch, built from a distroless base,
+  signed with Sigstore cosign (keyless) and carry SBOM + build provenance attestations.
+  Verify with the command in [SECURITY.md](SECURITY.md).
+- **Secrets never touch your Git repository** — sensitive values are injected from
+  Kubernetes Secrets at reconciliation time, and inline secrets are rejected by the API
+  server itself.
+- **Safe by default** — foreign resources are never touched (`CreateOnly`), realms are
+  never deleted implicitly (`Orphan`), and `master` is locked behind an explicit
+  annotation.
 
 ## Resource types
 
