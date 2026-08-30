@@ -14,6 +14,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+jobs:
   # The release is gated on the full integration suite against a matrix of
   # supported Keycloak servers, running on the tagged commit.
   integration:

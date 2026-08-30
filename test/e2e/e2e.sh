@@ -216,7 +216,7 @@ metrics_exposed() {
 wait_for "all custom metrics exposed" 120 metrics_exposed
 echo "$M" | grep 'keycloak_operator_connection_up{connection="production",namespace="keycloak-system"} 1' >/dev/null \
   && echo "PASS: connection_up reports healthy" || fail "connection_up not healthy"
-echo "$M" | grep 'keycloak_operator_server_info{.*version="26.3' >/dev/null \
+echo "$M" | grep "keycloak_operator_server_info{.*version=\"${KC_VERSION}" >/dev/null \
   && echo "PASS: server_info reports the Keycloak version" || fail "server_info missing"
 kill $METRICS_PF_PID 2>/dev/null || true
 
