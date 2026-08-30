@@ -25,7 +25,9 @@ policy while the API is still `v1alpha1`).
   stamp the git tag and commit).
 - Release bundles now ship `install.yaml` (stable name, resolves through
   `releases/latest/download/`) alongside the versioned bundle, plus a
-  `sha256sums.txt` manifest that the installer verifies.
+  `sha256sums.txt` manifest that the installer verifies — and that manifest
+  is itself signed keyless with cosign and verified by the installer when
+  cosign is available.
 - Every manifest in the install bundle carries
   `app.kubernetes.io/name=keycloak-operator`, enabling label-based
   teardown (`kubectl delete crd -l app.kubernetes.io/name=keycloak-operator`).
