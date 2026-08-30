@@ -10,6 +10,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 NAMESPACE="keycloak-e2e"
+KC_VERSION="${KC_VERSION:-26.3}"
 IMG="keycloak-operator:e2e-$(date +%s)"
 KC_URL_INCLUSTER="http://keycloak.${NAMESPACE}.svc.cluster.local:8080"
 KC_URL="http://localhost:18080"
@@ -96,8 +97,9 @@ if [[ "$(kubectl config current-context)" == kind-* ]]; then
   kind load docker-image "$IMG" >/dev/null || fail "kind load docker-image"
 fi
 
-log "Deploying Keycloak 26"
-kubectl apply -f "$REPO_ROOT/test/e2e/manifests/keycloak.yaml"
+log "Deploying Keycloak ${KC_VERSION}"
+sed "s/quay.io\/keycloak\/keycloak:26.3/quay.io\/keycloak\/keycloak:${KC_VERSION}/" \
+  "$REPO_ROOT/test/e2e/manifests/keycloak.yaml" | kubectl apply -f -
 wait_for "Keycloak ready" 300 kubectl rollout status deployment/keycloak -n "$NAMESPACE"
 
 # Host-side access to the in-cluster server for assertions.

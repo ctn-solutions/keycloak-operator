@@ -11,8 +11,14 @@ permissions:
 
 jobs:
   e2e:
-    name: E2E
+    name: E2E (Keycloak ${{ matrix.keycloak }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # Pull requests validate against the newest supported server; pushes to
+      # main run the full compatibility matrix.
+      matrix:
+        keycloak: ${{ github.event_name == 'pull_request' && fromJSON('["26.3"]') || fromJSON('["26.0", "26.1", "26.2", "26.3"]') }}
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
       - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
@@ -26,4 +32,5 @@ jobs:
       - name: Run e2e suite
         env:
           CI: "true"
+          KC_VERSION: ${{ matrix.keycloak }}
         run: bash test/e2e/e2e.sh

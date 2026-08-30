@@ -14,8 +14,33 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-jobs:
+  # The release is gated on the full integration suite against a matrix of
+  # supported Keycloak servers, running on the tagged commit.
+  integration:
+    name: Integration (Keycloak ${{ matrix.keycloak }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.0", "26.1", "26.2", "26.3"]
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4
+      - uses: actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15 # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Create kind cluster
+        uses: helm/kind-action@c72b4750145dbfb1c71734c3782a4db35a1c65c0 # v1
+        with:
+          cluster_name: kind
+      - name: Run integration suite
+        env:
+          CI: "true"
+          KC_VERSION: ${{ matrix.keycloak }}
+        run: bash test/e2e/e2e.sh
+
   build:
+    needs: integration
     name: Build, sign and publish
     runs-on: ubuntu-latest
     permissions:
