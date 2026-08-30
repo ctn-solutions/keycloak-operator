@@ -29,17 +29,22 @@ make lint                 # golangci-lint
 
 ## Release process
 
-Releases are fully automated — a maintainer only cuts a tag:
+Releases are fully automated — a maintainer only cuts a tag. The complete
+checklist (chart bump, changelog, tap update, verification) lives in
+[docs/release-process.md](docs/release-process.md); the short version:
 
 1. Update `Chart.yaml` (`version` and `appVersion`) to match the new tag.
-2. Verify `main` is green (CI + the Keycloak integration matrix).
-3. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+2. Update `CHANGELOG.md` and the compatibility matrix in `docs/upgrading.md`.
+3. Verify `main` is green (CI + the Keycloak integration matrix).
+4. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+5. After the workflow completes, update the Homebrew tap with
+   `hack/update-tap.sh vX.Y.Z` and curate the release notes.
 
 The release workflow runs the integration suite against every supported
 Keycloak version on the tagged commit, builds and signs the multi-arch
 image, publishes the Helm chart to `oci://ghcr.io/ctn-solutions/charts`,
-attaches the install bundle to the GitHub release and generates the release
-notes. A failed integration job aborts the release.
+attaches the install bundle and its checksums to the GitHub release and
+generates the release notes. A failed integration job aborts the release.
 
 ## Reporting issues
 

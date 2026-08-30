@@ -1,12 +1,12 @@
 # Installation
 
-Three ways to install the operator. All of them install the CRDs first —
+Four ways to install the operator. All of them install the CRDs first —
 Helm from the chart's `crds/` directory, the manifest bundle inline.
 
 ## Prerequisites
 
 - Kubernetes **1.25+**
-- Helm **3.8+** (for the OCI chart) or `kubectl` alone
+- Helm **3.8+** (for the OCI chart), or `kubectl` alone, or Homebrew
 - A Keycloak **26.x** server reachable from the cluster
 - Administration credentials for that server (a master admin user, or a
   realm-scoped service account — see the [authentication
@@ -29,7 +29,28 @@ helm install keycloak-operator oci://ghcr.io/ctn-solutions/charts/keycloak-opera
   --namespace keycloak-operator-system --create-namespace
 ```
 
-## Option 2 — Helm from a checkout
+## Option 2 — The installer script (no Helm)
+
+The installer script downloads a release bundle, verifies its sha256
+checksum and applies it with `kubectl` alone:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ctn-solutions/keycloak-operator/main/install.sh | bash
+```
+
+The piped-to-bash form is convenient but blind; to review before running:
+
+```bash
+curl -fsSLO https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.yaml
+# inspect, then:
+kubectl apply -f install.yaml
+```
+
+The script also handles upgrades, uninstalls and version pinning — see
+[Installing with the script](#option-4-the-installer-script) below and run
+`install.sh --help` for the full reference.
+
+## Option 3 — Helm from a checkout
 
 ```bash
 git clone https://github.com/ctn-solutions/keycloak-operator.git
@@ -38,14 +59,65 @@ helm install keycloak-operator charts/keycloak-operator \
   --namespace keycloak-operator-system --create-namespace
 ```
 
-## Option 3 — Plain manifest (no Helm)
+## Option 4 — Plain manifest (no Helm)
 
 ```bash
 kubectl apply -f https://github.com/ctn-solutions/keycloak-operator/releases/latest/download/install.yaml
 ```
 
 The bundle contains the CRDs, the `keycloak-operator-system` namespace, RBAC
-and the deployment, pinned to the released image.
+and the deployment, pinned to the released image. Every release also ships a
+version-pinned bundle (`install-vX.Y.Z.yaml`) and a `sha256sums.txt`
+manifest on the [release page](https://github.com/ctn-solutions/keycloak-operator/releases).
+
+## The installer script
+
+`install.sh` wraps the plain-manifest method with version resolution,
+checksum verification and safe uninstall. It refuses to touch Helm-managed
+installs — pick one method and stay with it.
+
+```bash
+# Install the latest release (or re-run to converge)
+curl -fsSL https://raw.githubusercontent.com/ctn-solutions/keycloak-operator/main/install.sh -o install.sh
+bash install.sh install
+
+# Pin a version
+bash install.sh install --version v0.2.0
+
+# Upgrade to the latest release
+bash install.sh upgrade
+
+# Uninstall (CRDs and managed resources are kept)
+bash install.sh uninstall
+
+# Full teardown including CRDs — deletes every managed resource
+bash install.sh uninstall --purge-crds --yes
+
+# What is installed, and what is available
+bash install.sh version
+```
+
+The script honors `GITHUB_TOKEN`/`GH_TOKEN` (higher API rate limits, and
+access when the repository is private) and `KUBECTL` (alternate kubectl
+binary). It never evaluates downloaded content: bundles are written to a
+temporary directory, checksum-verified when the release publishes
+`sha256sums.txt`, and handed to `kubectl` as files.
+
+## Homebrew (macOS and Linux)
+
+The [Homebrew tap](https://github.com/ctn-solutions/homebrew-tap) installs
+the installer script as a CLI:
+
+```bash
+brew install ctn-solutions/tap/keycloak-operator
+keycloak-operator install          # install the latest release
+keycloak-operator upgrade          # move to a newer release
+brew upgrade keycloak-operator     # update the CLI itself
+```
+
+The CLI is a convenience wrapper around the same install bundle — it is
+not the operator binary (the operator runs in your cluster as a container
+image).
 
 ## Namespace-scoped install
 
@@ -95,6 +167,15 @@ The most common ones:
 | `resources` | modest requests/limits | Container resources |
 
 ## Uninstalling
+
+With the installer script (keeps CRDs and managed resources by default):
+
+```bash
+bash install.sh uninstall              # or: keycloak-operator uninstall
+bash install.sh uninstall --purge-crds # full teardown, deletes managed resources
+```
+
+With Helm:
 
 ```bash
 helm uninstall keycloak-operator -n keycloak-operator-system
