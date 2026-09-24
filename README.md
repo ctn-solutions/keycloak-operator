@@ -20,6 +20,8 @@ It maps the [Keycloak Admin API](https://www.keycloak.org/docs-api/latest/rest-a
 every field in a custom resource spec mirrors the corresponding field of the Keycloak
 representation it manages, so what you write is exactly what the server stores.
 
+Design notes (in French): [Piloter la configuration Keycloak en GitOps : adoption, dérive et suppression de champs](https://ctn-solutions.com/ressources/keycloak-gitops-adoption-derive-suppression-champs) explains the field-ownership, adoption, drift and deletion model this operator implements, and compares it with the official Keycloak Operator, Terraform and keycloak-config-cli.
+
 ```yaml
 apiVersion: keycloak.ctn-solutions.io/v1alpha1
 kind: Realm
